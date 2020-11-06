@@ -122,16 +122,16 @@ p_hat_min <- min(meanP_week$p_hat, na.rm = TRUE)
 
 ## Optimization
 
-sink(paste0(state_code, "_sunOptim.log"))
+sink(paste0("fit_results/", state_code, "_sunOptim.log"))
 evo_optim <- DEoptim(binom_likelihood, lower=c(0, 0), upper=c(100, 1),
         control=DEoptim.control(trace = 5, reltol = 1e-5),
         var_observed = sunob, epi_df = epi_data, census_pop = census_pop, p_hat_range = c(p_hat_max, p_hat_min))
 
-saveRDS(evo_optim, file = paste0(state_code, "_DEoptim.rds"))
+saveRDS(evo_optim, file = paste0("fit_results/", state_code, "_DEoptim.rds"))
 
 NM_optim <- optim(evo_optim[["optim"]][["bestmem"]], binom_likelihood,
       var_observed = sunob, epi_df = epi_data, census_pop = census_pop, p_hat_range = c(p_hat_max, p_hat_min),
       control = list(trace = 1), method = "Nelder-Mead")
 
-saveRDS(NM_optim, file = paste0(state_code, "_NMoptim.rds"))
+saveRDS(NM_optim, file = paste0("fit_results/", state_code, "_NMoptim.rds"))
 sink()

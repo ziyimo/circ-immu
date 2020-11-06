@@ -122,11 +122,11 @@ p_hat_min <- min(meanP_week$p_hat, na.rm = TRUE)
 
 neg_ll <- rep(NA, length(prm_range))
 
-sink(paste0(state_code, "_cliOptim.log"))
+sink(paste0("fit_results/", state_code, "_cliOptim.log"))
 for (prm_idx in 1:length(prm_range)) {
   neg_ll[prm_idx] <- binom_L(prm_range[prm_idx], climob, epi_data, census_pop, c(p_hat_max, p_hat_min))
   cat(state_code, prm_range[prm_idx], neg_ll[prm_idx], "\n")
 }
 sink()
 
-write.table(cbind(prm_range, neg_ll), file = paste0(state_code, "_cli_negLL.tsv"), sep = "\t", row.names = FALSE, col.names = FALSE)
+write.table(cbind(prm_range, neg_ll), file = paste0("fit_results/", state_code, "_cli_negLL.tsv"), sep = "\t", row.names = FALSE, col.names = FALSE)

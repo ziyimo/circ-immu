@@ -34,13 +34,13 @@ state_code <- "TX"
 
 ## Load fitting results
 
-DE_fit <- readRDS(paste0(state_code, "_DEoptim.rds"))
+DE_fit <- readRDS(paste0("fit_results/", state_code, "_DEoptim.rds"))
 cat(DE_fit$optim$bestmem, ";", DE_fit$optim$bestval)
 
-NM_fit <- readRDS(paste0(state_code, "_NMoptim.rds"))
+NM_fit <- readRDS(paste0("fit_results/", state_code, "_NMoptim.rds"))
 cat(NM_fit$par, ";", NM_fit$value)
 
-cli_negLL <- read.table(paste0(state_code, "_cli_negLL.tsv"), sep = "\t", col.names = c("alpha", "negLL"))
+cli_negLL <- read.table(paste0("fit_results/", state_code, "_cli_negLL.tsv"), sep = "\t", col.names = c("alpha", "negLL"))
 qplot(cli_negLL$alpha, cli_negLL$negLL)
 cli_fit <-cli_negLL[which.min(cli_negLL$negLL), ]
 
