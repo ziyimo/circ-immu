@@ -5,30 +5,7 @@ library(DEoptim)
 library(ggplot2)
 library(gridExtra)
 
-######## Plot model #######
-
-sun_range = seq(0, 1, by=0.01)
-cli_range = seq(0, 0.03, by=0.0003)
-
-p1 <- ggplot() + 
-  geom_line(data = data.frame("hum"= cli_range, "R0"= R0_exp(cli_range, -10, 2, 1.2)), 
-            aes(x = hum, y=R0), color = "blue") +
-  geom_line(data = data.frame("hum"= cli_range, "R0"= R0_exp(cli_range, -100, 2, 1.2)), 
-            aes(x = hum, y=R0), color = "red") +
-  geom_line(data = data.frame("hum"= cli_range, "R0"= R0_exp(cli_range, -300, 2, 1.2)), 
-            aes(x = hum, y=R0), color = "green")
-
-p2 <- ggplot() + 
-  geom_line(data = data.frame("sun"= sun_range, "R0"= R0_sig(sun_range, 10, 0.7, 2, 1.2)), 
-            aes(x = sun, y=R0), color = "blue") +
-  geom_line(data = data.frame("sun"= sun_range, "R0"= R0_sig(sun_range, 10, 0.5, 2, 1.2)), 
-            aes(x = sun, y=R0), color = "red") +
-  geom_line(data = data.frame("sun"= sun_range, "R0"= R0_sig(sun_range, 100, 0.5, 2, 1.2)), 
-            aes(x = sun, y=R0), color = "green")
-grid.arrange(p1, p2, ncol = 1)
-
-
-###########################
+source("SIRS_model.R")
 
 state_code <- "TX"
 

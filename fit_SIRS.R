@@ -1,103 +1,35 @@
 #!/usr/bin/env Rscript
 
-library(deSolve)
 library(DEoptim)
+library(binom)
+library(deSolve)
+source("SIRS_model.R")
 
-R0_sig <- function(q_t, k, q_0, R0base, R0min){
-  R0 = (R0base-R0min)/(1+exp(-k*(q_t-q_0)))+R0min
-  return(R0)
-}
-
-# SIRS model
-SIRS_R0sig <- function(time, state, theta) {
-  ## Parameters:
-  varob <- theta[["varob"]] # observed variable, either sun or climate
-  D <- theta[["D"]]
-  L <- theta[["L"]]
-  R0base <- theta[["R0max"]]
-  R0min <- theta[["R0min"]]
-  k <- theta[["k_step"]] # steepness
-  q_0 <- theta[["q_center"]] # center of the sigmoid
-  
-  # get humidity or sunrise at time t
-  varobt <- varob[time]
-  
-  ## States
-  S <- state["S"]
-  I <- state["I"]
-  R <- state["R"]
-  # Total population
-  N <- S + I + R
-  
-  # Ordinary differential equations
-  beta = R0_sig(varobt, k, q_0, R0base, R0min)/D
-  
-  dS <- (R/L) -beta * S * I/N
-  dI <- beta * S * I/N - (I/D)
-  dR <- (I/D) - (R/L)
-  
-  return(list(c(dS, dI, dR)))
-}
-
-binom_likelihood <- function(sig_params, var_observed, epi_df, census_pop, p_hat_range){
-  ## sig_params = c(k_step, q_center) ##
-  ## var_observed: climate/sunrise data (annual) ##
-  ## epi_df: dataframe of epidemiological data ##
-  ## p_hat_range = c(p_hat_max, p_hat_min) ##
-  
-  offset = 0 # specify when to seed the single infection
-  tot_years = 50
-  xstart = c(S = census_pop-1, I = 1, R = 0) # use actual state population
-  times = seq(1, 364 * tot_years, by = 1)[1:(364*tot_years-offset)]
-  
-  # hard code some parameters
-  SIRS_params = list(D = 5,
-                     L = 40*7,
-                     R0max = 2,
-                     R0min = 1.2,
-                     k_step = sig_params[1],
-                     q_center = sig_params[2],
-                     varob = rep(head(var_observed, 364), times = tot_years)[(offset+1):(364*tot_years)]
-                     )
-  predictions <- as.data.frame(ode(xstart, times, SIRS_R0sig, SIRS_params))
-  state_p <- predictions$I/census_pop
-
-  data_years <- ceiling(max(epi_df$rel_date)/364)
-  model_range = seq((tot_years-data_years)*364-offset+1, tot_years*364-offset)
-  model_p <- state_p[model_range] # take only the number of years corresponding to data
-  
-  # apply min-max scaling for model predicted probability
-  scaler <- sum(p_hat_range)/(max(model_p)+min(model_p))
-  model_p <- model_p*scaler
-  
-  # model prediction on particular days
-  p_weekly <- model_p[rel_date]
-  # Drop data point violating model assumption and na fields
-  bad <- p_weekly > epi_df$pi
-  mask <- is.na(epi_df$TT) | (epi_df$TT == 0)
-  drop <- bad | mask
-  epi_weekly <- epi_df[!drop, ]
-  p_weekly <- p_weekly[!drop]
-  q <- p_weekly/epi_weekly$pi
-  
-  # Calculate negative log likelihood
-  neg_log_L <- -sum(dbinom(epi_weekly$k, size=epi_weekly$TT, prob=q, log=TRUE))
-  return(neg_log_L)  
-}
-
+time_stamp <- format(Sys.time(), "%m%d-%H%M")
 args <- commandArgs(trailingOnly=TRUE)
-# Data preprocessing
 
-state_code <- args[1]
-#state_code <- "TX"
+state_code <- args[1]   # 2-letter state code
+fit_var <- args[2]      # `sun` or `cli` or `both`
+optim_method <- args[3] # `DE` (genetic) or `NM` (Nelder-Mead)
 
 ## Load population
 state_pop <- read.delim("state_lv_data/state_pop.tsv")
 census_pop <- state_pop$pop[state_pop$code==state_code]
 
-## Load sunrise data
-all_state_sun <- read.csv("state_lv_data/state_daily_sunrise_2019.csv")
-sunob <- all_state_sun[[state_code]]/720 # 365 days, scaled to maximum 720 = 12 hours
+if (fit_var == "sun" | fit_var == "both"){
+  ## Load sunrise data
+  all_state_sun <- read.csv("state_lv_data/state_daily_sunrise_2019.csv")
+  sunob <- all_state_sun[[state_code]]/720 # 365 days, scaled to maximum 720 = 12 hours
+}
+
+if (fit_var == "cli" | fit_var == "both"){
+  ## Load humidity data
+  all_state_hum <- read.csv("state_lv_data/state_humidity_2014_2018.csv")
+  all_state_hum <- all_state_hum[all_state_hum$X != "2016-02-29", ] # get rid of leap year Feb 29
+  climob <- all_state_hum[[state_code]] # multiple years
+  climob <- matrix(climob, nrow = length(climob)/365, ncol = 365, byrow = TRUE)
+  climob <- colMeans(climob) # 365 days
+}
 
 ## Load flu data
 epiob <- read.csv(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv")) # blank field automatically NA
@@ -105,7 +37,7 @@ epiob <- epiob[epiob$WEEK <= 52, ] # cap year to 52 weeks
 
 # calculate relative date to the beginning of the 1st year in the data
 y0 <- epiob$YEAR[1]
-rel_date <- (epiob$YEAR-y0)*364 + epiob$WEEK*7 - 3
+rel_date <- (epiob$YEAR-y0)*364 + epiob$WEEK*7 - 3 # center on Thursday
 
 k <- epiob$TOTAL.A + epiob$TOTAL.B
 TT <- epiob$TOTAL.SPECIMENS
@@ -113,25 +45,66 @@ pi <- epiob$X.UNWEIGHTED.ILI/100
 
 epi_data <- data.frame("rel_date"=rel_date, "k"=k, "TT"=TT, "pi"=pi)
 
-# calculate scaling factors
-p_df <- data.frame("p_hat"=pi*k/TT, "week"=epiob$WEEK)
-meanP_week <- aggregate(p_df, by=list(epiob$WEEK), FUN=mean, na.rm=TRUE)
-#qplot(meanP_week$week, meanP_week$p_hat)
-p_hat_max <- max(meanP_week$p_hat, na.rm = TRUE)
-p_hat_min <- min(meanP_week$p_hat, na.rm = TRUE)
+# Calculate q_cap
+q_99 <- binom.confint(k, TT, conf.level = 0.99, methods = c("exact"))
+q_99cap <- max(q_99$upper)
+
 
 ## Optimization
+sink(paste0("fit_results/", state_code, fit_var, optim_method, time_stamp, ".log"))
+cat("Fitting:", state_code, fit_var, "with", optim_method, "\n")
 
-sink(paste0("fit_results/", state_code, "_sunOptim.log"))
-evo_optim <- DEoptim(binom_likelihood, lower=c(0, 0), upper=c(100, 1),
-        control=DEoptim.control(trace = 5, reltol = 1e-5),
-        var_observed = sunob, epi_df = epi_data, census_pop = census_pop, p_hat_range = c(p_hat_max, p_hat_min))
+if (fit_var == "both"){
+  ## Wrapper for likelihood function
+  binom_L <- function(prms, var1_obs, var2_obs, epi_df, pop_size, q_cap, c = 1){
+    state_p <- SIRS2var_pred(prms, var1_obs, var2_obs, pop_size)
+    mod_dat <- p2q(state_p, epi_df, q_cap, c)
+    q_adj <- mod_dat[[1]]
+    epi_weekly <- mod_dat[[2]]
+    neg_log_L <- -sum(dbinom(epi_weekly$k, size=epi_weekly$TT, prob=q_adj, log=TRUE))
+    return(neg_log_L)
+  }
+  if (optim_method == "DE"){
+    fit_result <- DEoptim(binom_L, lower=c(0, 0, -3000, 0), upper=c(100, 1, 0, 0.022),
+                         control=DEoptim.control(trace = 5, reltol = 1e-5),
+                         var1_obs = sunob, var2_obs = climob,
+                         epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap)
+  } else if (optim_method == "NM"){
+    fit_result <- optim(c(10, 0.5, -100, 0.01), binom_L,
+                        var1_obs = sunob, var2_obs = climob,
+                        epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap,
+                        control = list(trace = 1), method = "Nelder-Mead")
+  }
+} else {
+  binom_L <- function(prms, var_obs, epi_df, pop_size, q_cap, c = 1){
+    state_p <- SIRS1var_pred(prms, var_obs, pop_size)
+    mod_dat <- p2q(state_p, epi_df, q_cap, c)
+    q_adj <- mod_dat[[1]]
+    epi_weekly <- mod_dat[[2]]
+    neg_log_L <- -sum(dbinom(epi_weekly$k, size=epi_weekly$TT, prob=q_adj, log=TRUE))
+    return(neg_log_L)
+  }
+  if (fit_var == "cli"){
+    param_low <- c(-3000, 0)
+    param_high <- c(0, 0.022)
+    param_init <- c(-100, 0.01)
+    feed_var <- climob
+  } else if (fit_var == "sun"){
+    param_low <- c(0, 0)
+    param_high <- c(100, 1)
+    param_init <- c(10, 0.5)
+    feed_var <- sunob
+  }
+  if (optim_method == "DE"){
+    fit_result <- DEoptim(binom_L, lower=param_low, upper=param_high,
+                         control=DEoptim.control(trace = 5, reltol = 1e-5),
+                         var_obs = feed_var, epi_df = epi_data, pop_size = census_pop,  q_cap = q_99cap)
+  } else if (optim_method == "NM"){
+    fit_result <- optim(param_init, binom_L,
+                        var_obs = feed_var, epi_df = epi_data, pop_size = census_pop,  q_cap = q_99cap,
+                        control = list(trace = 1), method = "Nelder-Mead")
+  }
+}
 
-saveRDS(evo_optim, file = paste0("fit_results/", state_code, "_DEoptim.rds"))
-
-NM_optim <- optim(evo_optim[["optim"]][["bestmem"]], binom_likelihood,
-      var_observed = sunob, epi_df = epi_data, census_pop = census_pop, p_hat_range = c(p_hat_max, p_hat_min),
-      control = list(trace = 1), method = "Nelder-Mead")
-
-saveRDS(NM_optim, file = paste0("fit_results/", state_code, "_NMoptim.rds"))
+saveRDS(fit_result, file = paste0("fit_results/", state_code, fit_var, optim_method, time_stamp, ".rds"))
 sink()

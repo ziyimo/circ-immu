@@ -2,6 +2,7 @@
 ######################
 **/._*
 **/.DS_Store
+nohup.out
 
 # Jupyter notebook generated files #
 ####################################
