@@ -10,7 +10,7 @@ args <- commandArgs(trailingOnly=TRUE)
 
 state_code <- args[1]   # 2-letter state code
 fit_var <- args[2]      # `sun` or `cli` or `both`
-optim_method <- args[3] # `DE` (genetic) or `NM` (Nelder-Mead)
+optim_method <- args[3] # `DE` (genetic), `NM` (Nelder-Mead), or `LBFGSB`
 
 ## Load population
 state_pop <- read.delim("state_lv_data/state_pop.tsv")
@@ -45,10 +45,10 @@ pi <- epiob$X.UNWEIGHTED.ILI/100
 
 epi_data <- data.frame("rel_date"=rel_date, "k"=k, "TT"=TT, "pi"=pi)
 
+missing <- is.na(TT) | (TT == 0)
 # Calculate q_cap
-q_99 <- binom.confint(k, TT, conf.level = 0.99, methods = c("exact"))
+q_99 <- binom.confint(k[!missing], TT[!missing], conf.level = 0.99, methods = c("exact"))
 q_99cap <- max(q_99$upper)
-
 
 ## Optimization
 sink(paste0("fit_results/", state_code, fit_var, optim_method, time_stamp, ".log"))
@@ -74,6 +74,12 @@ if (fit_var == "both"){
                         var1_obs = sunob, var2_obs = climob,
                         epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap,
                         control = list(trace = 1), method = "Nelder-Mead")
+  } else if (optim_method == "LBFGSB"){
+    fit_result <- optim(c(10, 0.5, -100, 0.01), binom_L,
+                        var1_obs = sunob, var2_obs = climob,
+                        epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap,
+                        lower=c(0, 0, -3000, 0), upper=c(100, 1, 0, 0.022),
+                        control = list(trace = 1), method = "L-BFGS-B")
   }
 } else {
   binom_L <- function(prms, var_obs, epi_df, pop_size, q_cap, c = 1){
@@ -98,11 +104,16 @@ if (fit_var == "both"){
   if (optim_method == "DE"){
     fit_result <- DEoptim(binom_L, lower=param_low, upper=param_high,
                          control=DEoptim.control(trace = 5, reltol = 1e-5),
-                         var_obs = feed_var, epi_df = epi_data, pop_size = census_pop,  q_cap = q_99cap)
+                         var_obs = feed_var, epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap)
   } else if (optim_method == "NM"){
     fit_result <- optim(param_init, binom_L,
-                        var_obs = feed_var, epi_df = epi_data, pop_size = census_pop,  q_cap = q_99cap,
+                        var_obs = feed_var, epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap,
                         control = list(trace = 1), method = "Nelder-Mead")
+  } else if (optim_method == "LBFGSB"){
+    fit_result <- optim(param_init, binom_L,
+                        var_obs = feed_var, epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap,
+                        lower=param_low, upper=param_high,
+                        control = list(trace = 1), method = "L-BFGS-B")
   }
 }
 
