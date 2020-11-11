@@ -9,6 +9,13 @@
 * `fit_SIRS.R`: __Fit sigmoid model__
 
     Usage: `$ nohup ./fit_SIRS.R [state_code] [variable] [optim_method] &`
+
     		`[state_code]`: 2-letter state code
+
     		`[variable]`: one of `sun`, `cli` or `both`
-    		`[optim_method]`: one of `DE` (genetic) or `NM` (Nelder-Mead
+    		
+    		`[optim_method]`: one of `DE` (genetic) or `NM` (Nelder-Mead)
+
+* `plot_SIRS.R`: __Some plotting functions__ (deprecated, to be updated)
+
+* `tally.R`: __Aggregate state level fitting results__ (deprecated, to be updated)
