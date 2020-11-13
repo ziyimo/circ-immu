@@ -10,7 +10,9 @@ args <- commandArgs(trailingOnly=TRUE)
 
 state_code <- args[1]   # 2-letter state code
 fit_var <- args[2]      # `sun` or `cli` or `both`
-optim_method <- args[3] # `DE` (genetic), `NM` (Nelder-Mead), or `LBFGSB`
+#prms_init <- args[3]    # supply a path to DEoptim .rds file, or `new` to run DEoptim from scratch
+optim_method <- args[3] # `DE` (genetic), `LBFGSB`, `GS` (grid search, for sun and cli only)
+#optim_method <- "hyb" # DE followed by LBFGSB
 
 ## Load population
 state_pop <- read.delim("state_lv_data/state_pop.tsv")
@@ -50,70 +52,67 @@ missing <- is.na(TT) | (TT == 0)
 q_99 <- binom.confint(k[!missing], TT[!missing], conf.level = 0.99, methods = c("exact"))
 q_99cap <- max(q_99$upper)
 
-## Optimization
 sink(paste0("fit_results/", state_code, fit_var, optim_method, time_stamp, ".log"))
+cat("q capped at", q_99cap, "\n")
+
+## Optimization
 cat("Fitting:", state_code, fit_var, "with", optim_method, "\n")
 
 if (fit_var == "both"){
-  ## Wrapper for likelihood function
-  binom_L <- function(prms, var1_obs, var2_obs, epi_df, pop_size, q_cap, c = 1){
-    state_p <- SIRS2var_pred(prms, var1_obs, var2_obs, pop_size)
-    mod_dat <- p2q(state_p, epi_df, q_cap, c)
-    q_adj <- mod_dat[[1]]
-    epi_weekly <- mod_dat[[2]]
-    neg_log_L <- -sum(dbinom(epi_weekly$k, size=epi_weekly$TT, prob=q_adj, log=TRUE))
-    return(neg_log_L)
-  }
   if (optim_method == "DE"){
-    fit_result <- DEoptim(binom_L, lower=c(0, 0, -3000, 0), upper=c(100, 1, 0, 0.022),
-                         control=DEoptim.control(trace = 5, reltol = 1e-5),
-                         var1_obs = sunob, var2_obs = climob,
-                         epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap)
-  } else if (optim_method == "NM"){
-    fit_result <- optim(c(10, 0.5, -100, 0.01), binom_L,
-                        var1_obs = sunob, var2_obs = climob,
-                        epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap,
-                        control = list(trace = 1), method = "Nelder-Mead")
-  } else if (optim_method == "LBFGSB"){
-    fit_result <- optim(c(10, 0.5, -100, 0.01), binom_L,
+    fit_result <- DEoptim(binom2_L, lower=c(0, 0, -3000, 0), upper=c(100, 1, 0, 0.022),
+                           control=DEoptim.control(trace = 5, reltol = 1e-5),
+                           var1_obs = sunob, var2_obs = climob,
+                           epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap)
+    #saveRDS(evo_optim, file = paste0("fit_results/", state_code, fit_var, time_stamp, "_DE.rds"))
+  } else if (optim_method == "LBFGSB") {
+    # evo_optim <- readRDS(prms_init)
+    # cat("Initial param vals:", evo_optim[["optim"]][["bestmem"]], "; negLL:", evo_optim[["optim"]][["bestval"]], "\n")
+    fit_result <- optim(c(10, 0.5, -100, 0.01), binom2_L,
                         var1_obs = sunob, var2_obs = climob,
                         epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap,
                         lower=c(0, 0, -3000, 0), upper=c(100, 1, 0, 0.022),
-                        control = list(trace = 1), method = "L-BFGS-B")
+                        control = list(trace=3, parscale=c(100, 1, 3000, 0.022), REPORT=5), method = "L-BFGS-B")
   }
 } else {
-  binom_L <- function(prms, var_obs, epi_df, pop_size, q_cap, c = 1){
-    state_p <- SIRS1var_pred(prms, var_obs, pop_size)
-    mod_dat <- p2q(state_p, epi_df, q_cap, c)
-    q_adj <- mod_dat[[1]]
-    epi_weekly <- mod_dat[[2]]
-    neg_log_L <- -sum(dbinom(epi_weekly$k, size=epi_weekly$TT, prob=q_adj, log=TRUE))
-    return(neg_log_L)
-  }
   if (fit_var == "cli"){
     param_low <- c(-3000, 0)
     param_high <- c(0, 0.022)
     param_init <- c(-100, 0.01)
+    param_scale <- c(3000, 0.022)
     feed_var <- climob
   } else if (fit_var == "sun"){
     param_low <- c(0, 0)
     param_high <- c(100, 1)
     param_init <- c(10, 0.5)
+    param_scale <- c(100, 1)
     feed_var <- sunob
   }
   if (optim_method == "DE"){
-    fit_result <- DEoptim(binom_L, lower=param_low, upper=param_high,
-                         control=DEoptim.control(trace = 5, reltol = 1e-5),
-                         var_obs = feed_var, epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap)
-  } else if (optim_method == "NM"){
-    fit_result <- optim(param_init, binom_L,
-                        var_obs = feed_var, epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap,
-                        control = list(trace = 1), method = "Nelder-Mead")
-  } else if (optim_method == "LBFGSB"){
-    fit_result <- optim(param_init, binom_L,
+    fit_result <- DEoptim(binom1_L, lower=param_low, upper=param_high,
+                           control=DEoptim.control(trace = 5, reltol = 1e-5),
+                           var_obs = feed_var, epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap)
+    #saveRDS(evo_optim, file = paste0("fit_results/", state_code, fit_var, time_stamp, "_DE.rds"))
+  } else if (optim_method == "LBFGSB") {
+    # evo_optim <- readRDS(prms_init)
+    # cat("Initial param vals:", evo_optim[["optim"]][["bestmem"]], "; negLL:", evo_optim[["optim"]][["bestval"]], "\n")
+    fit_result <- optim(param_init, binom1_L,
                         var_obs = feed_var, epi_df = epi_data, pop_size = census_pop, q_cap = q_99cap,
                         lower=param_low, upper=param_high,
-                        control = list(trace = 1), method = "L-BFGS-B")
+                        control = list(trace=3, parscale=param_scale, REPORT=5), method = "L-BFGS-B")
+  } else if (optim_method == "GS") {
+    dim_size <- 50
+    k_range <- seq(param_low[1], param_high[1], length.out = dim_size)
+    q0_range <- seq(param_low[2], param_high[2], length.out = dim_size)
+    LL_surf <- matrix(nrow = dim_size, ncol = dim_size)
+    
+    for (i in 1:dim_size){
+      for (j in 1:dim_size){
+        LL_surf[i, j] <-  binom1_L(c(k_range[i], q0_range[j]), feed_var, epi_data, census_pop, q_99cap)
+        cat(k_range[i], q0_range[j], ":", LL_surf[i, j], "\n")
+      }
+    }
+    fit_result <- list(k_range, q0_range, LL_surf)
   }
 }
 

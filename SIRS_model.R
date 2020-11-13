@@ -152,3 +152,22 @@ p2q <- function(mod_pred, epi_df, q_cap, c_scaling = 1){
   
   return(list(q_adj, epi_weekly))
 }
+
+## Wrappers for likelihood function
+binom2_L <- function(prms, var1_obs, var2_obs, epi_df, pop_size, q_cap, c = 1){ # 2 variable
+  state_p <- SIRS2var_pred(prms, var1_obs, var2_obs, pop_size)
+  mod_dat <- p2q(state_p, epi_df, q_cap, c)
+  q_adj <- mod_dat[[1]]
+  epi_weekly <- mod_dat[[2]]
+  neg_log_L <- -sum(dbinom(epi_weekly$k, size=epi_weekly$TT, prob=q_adj, log=TRUE))
+  return(neg_log_L)
+}
+
+binom1_L <- function(prms, var_obs, epi_df, pop_size, q_cap, c = 1){ # single variable
+  state_p <- SIRS1var_pred(prms, var_obs, pop_size)
+  mod_dat <- p2q(state_p, epi_df, q_cap, c)
+  q_adj <- mod_dat[[1]]
+  epi_weekly <- mod_dat[[2]]
+  neg_log_L <- -sum(dbinom(epi_weekly$k, size=epi_weekly$TT, prob=q_adj, log=TRUE))
+  return(neg_log_L)
+}
