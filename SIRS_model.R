@@ -18,42 +18,47 @@ if(interactive()){
   library(ggplot2)
   library(gridExtra)
   
+  clean <- theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                 panel.background = element_blank(), axis.line = element_line(colour = "black"),
+                 text = element_text(size=20))
+  
   sun_range = seq(0, 1, by=0.01)
   cli_range = seq(0, 0.03, by=0.0003)
   
   p1 <- ggplot() + 
-    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_sig(cli_range, -300, 0.02, 2, 1.2)), 
-              aes(x = hum, y=R0), color = "blue") +
+    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_sig(cli_range, -100, 0.025, 2, 1.2)), 
+              aes(x = hum, y=R0), color = "#E69F00") +
     geom_line(data = data.frame("hum"= cli_range, "R0"= R0_sig(cli_range, -1500, 0.015, 2, 1.2)), 
-              aes(x = hum, y=R0), color = "red") +
-    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_sig(cli_range, -3000, 0.005, 2, 1.2)), 
-              aes(x = hum, y=R0), color = "green")
+              aes(x = hum, y=R0), color = "#0072B2") +
+    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_sig(cli_range, -300, 0.01, 2, 1.2)), 
+              aes(x = hum, y=R0), color = "#009E73") + clean
   
   p2 <- ggplot() + 
-    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_sig(sun_range, 10, 0.7, 2, 1.2)), 
-              aes(x = sun, y=R0), color = "blue") +
-    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_sig(sun_range, 50, 0.5, 2, 1.2)), 
-              aes(x = sun, y=R0), color = "red") +
-    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_sig(sun_range, 100, 0.5, 2, 1.2)), 
-              aes(x = sun, y=R0), color = "green")
-  grid.arrange(p1, p2, ncol = 1)
+    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_sig(sun_range, 100, 0.7, 2, 1.2)), 
+              aes(x = sun, y=R0), color = "#E69F00") +
+    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_sig(sun_range, 10, 0.5, 2, 1.2)), 
+              aes(x = sun, y=R0), color = "#0072B2") +
+    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_sig(sun_range, 30, 0.5, 2, 1.2)), 
+              aes(x = sun, y=R0), color = "#009E73") + clean
+  grid.arrange(p1, p2, ncol = 1) 
   
   sun_cli_df <- expand.grid(sun_range, cli_range)
   colnames(sun_cli_df) <- c("sun", "hum")
   
   sun_cli_df$R0 <- R0_sig2(sun_cli_df$sun, sun_cli_df$hum, 3, 0.5, -100, 0.01, 2, 1.2)
-  p1 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled()
+  p1 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled() + clean
   
   sun_cli_df$R0 <- R0_sig2(sun_cli_df$sun, sun_cli_df$hum, 10, 0.5, -100, 0.01, 2, 1.2)
-  p2 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled()
+  p2 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled() + clean
   
   sun_cli_df$R0 <- R0_sig2(sun_cli_df$sun, sun_cli_df$hum, 3, 0.5, -300, 0.01, 2, 1.2)
-  p3 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled()
+  p3 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled() + clean
   
   sun_cli_df$R0 <- R0_sig2(sun_cli_df$sun, sun_cli_df$hum, 10, 0.5, -300, 0.01, 2, 1.2)
-  p4 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled()
+  p4 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled() + clean
   
   grid.arrange(p1, p2, p3, p4, ncol = 2)
+  grid.arrange(p2, p3, ncol = 1)
 }
 ###########################
 
@@ -133,7 +138,7 @@ SIRS2var_pred <- function(sig2_params, var1_obs, var2_obs, census_pop){
 }
 
 # Generate q (binom probability) from raw values of p
-p2q <- function(mod_pred, epi_df, q_cap, c_scaling = 1){
+p2q <- function(mod_pred, epi_df, q_cap, c_scaling){
   
   offset = 0
   tot_years = 50

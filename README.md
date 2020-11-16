@@ -24,13 +24,15 @@
 
 * `fit_SIRS.R`: __Fit sigmoid model__
 
-    Usage: `$ nohup ./fit_SIRS.R [state_code] [variable] [optim_method] &`
+    Usage: `$ nohup ./fit_SIRS.R [state_code] [variable] [optim_arg] [scaler] &`
 
     		`[state_code]`: 2-letter state code
 
     		`[variable]`: one of `sun`, `cli` or `both`
     		
-    		`[optim_method]`: see script
+    		`[optim_arg]`: see script
+
+        `[scaler]`: a constant to down scale model predicted `p`, (0, 1]
 
 * `plot_SIRS.R`: __Some plotting functions__ (deprecated, to be updated)
 
