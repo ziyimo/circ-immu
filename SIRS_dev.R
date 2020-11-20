@@ -3,14 +3,14 @@
 library(ggplot2)
 library(gridExtra)
 
-library(deSolve)
+#library(deSolve)
 library(binom)
 
-#source("SIRS_model.R")
+source("SIRS_model.R")
 
 #args <- commandArgs(trailingOnly=TRUE)
 
-state_code <- "TX"
+state_code <- "NY"
 
 ## Load population
 state_pop <- read.delim("state_lv_data/state_pop.tsv")
@@ -43,9 +43,11 @@ rel_date <- (epiob$YEAR-y0)*364 + epiob$WEEK*7 - 3
 k <- epiob$TOTAL.A + epiob$TOTAL.B
 TT <- epiob$TOTAL.SPECIMENS
 pi <- epiob$X.UNWEIGHTED.ILI/100
-#mask <- is.na(TT) | (TT == 0) # missing data: no. of test is 0 or NA
+mask <- is.na(TT) | (TT == 0) | (pi == 0) # missing data: no. of test is 0 or NA, or no sympotomatic patient
+cat(sum(mask), "weeks masked", "\n")
 
 epi_data <- data.frame("rel_date"=rel_date, "k"=k, "TT"=TT, "pi"=pi)
+epi_data <- epi_data[!mask, ]
 
 # # calculate scaling factors
 # p_df <- data.frame("p_hat"=pi*k/TT, "week"=epiob$WEEK)
@@ -72,20 +74,24 @@ epi_data <- data.frame("rel_date"=rel_date, "k"=k, "TT"=TT, "pi"=pi)
 # cat("c:", scaler, "\n")
 
 # Calculate q_cap
-q_99 <- binom.confint(k, TT, conf.level = 0.99, methods = c("exact"))
-q_99$date <- rel_date
+q_conf <- binom.confint(k, TT, conf.level = 1-1e-3, methods = c("exact"))
+q_conf$date <- rel_date
 ggplot() +
-  geom_line(data = q_99, aes(x = date, y=upper), color = "blue") +
-  geom_line(data = q_99, aes(x = date, y=mean), color = "black")
+  geom_line(data = q_conf, aes(x = date, y=mean), color = "blue") +
+  geom_ribbon(data = q_conf, aes(x=date, ymin=lower, ymax=upper), fill="blue", alpha=0.5) +
+  geom_line(data = data.frame("X"= epi_data$rel_date, "pi"= epi_data$pi),
+            aes(x = X, y=pi), color = "red") +
+  geom_line(data = data.frame("X"= epi_data$rel_date, "p_hat"= k/TT*pi),
+            aes(x = X, y=p_hat), color = "orange")
 
-q_cap <- max(q_99$upper)
+q_cap <- max(q_conf$upper)
 
 #### Test that steady state reached regardless of when the 1st infection is seeded #####
 ## PASSED
 
-#state_p <- SIRS1var_pred(c(5.66, 0.62), sunob, census_pop)
-#state_p <- SIRS1var_pred(c(-300, 0.01), climob, census_pop)
-state_p <- SIRS2var_pred(c(20, 0.6, -100, 0.01), sunob, climob, census_pop)
+state_p <- SIRS1var_pred(c(16.32242, 16.32242*0.5535876), sunob, census_pop)
+state_p <- SIRS1var_pred(c(-272.7839, -272.7839*0.01), climob, census_pop)
+state_p <- SIRS2var_pred(c(17.01981, -15.6381, 17.01981*0.5493769-15.6381*0.01599056), sunob, climob, census_pop)
 
 plot_range = seq(0*364+1, 10*364) # take last 5 years
 plot(1:length(plot_range), state_p[plot_range])
@@ -98,17 +104,18 @@ plot(1:length(plot_range), state_p[plot_range])
 # asc_corr <- epi_weekly$pi
 # asc_corr[low_q] = 1
 
-mod_dat <- p2q(state_p, epi_data, q_cap)
+state_q <- p2q(state_p, epi_data, c_scaling = 0.6)
+q_adj <- pmin(state_q, q_cap)
 
-q_adj <- mod_dat[[1]]
-epi_weekly <- mod_dat[[2]]
-
+# q_adj <- mod_dat[[1]]
+# epi_weekly <- mod_dat[[2]]
+# 
 # p1 <- ggplot() +
-#   geom_point(data = data.frame("X"= epi_weekly$rel_date, "p_hat"= epi_weekly$k/epi_weekly$TT*epi_weekly$pi),
-#              aes(x = X, y=p_hat), color = "blue") +
-#   geom_line(data = data.frame("X"= epi_weekly$rel_date, "p"= p_weekly),
+#   geom_point(data = data.frame("X"= epi_data$rel_date, "p_hat"= epi_data$k/epi_data$TT*epi_data$pi),
+#              aes(x = X, y=p_hat), color = "red") +
+#   geom_line(data = data.frame("X"= epi_data$rel_date, "p"= p_weekly),
 #             aes(x = X, y=p), color = "orange") +
-#   geom_line(data = data.frame("X"= epi_weekly$rel_date, "pi"= epi_weekly$pi),
+#   geom_line(data = data.frame("X"= epi_data$rel_date, "pi"= epi_weekly$pi),
 #             aes(x = X, y=pi), color = "red")
 # 
 # p2 <- ggplot() +
@@ -124,16 +131,20 @@ p_low <- qbinom(0.025, size=epi_weekly$TT, prob=q_adj)/epi_weekly$TT
 p_high <- qbinom(0.975, size=epi_weekly$TT, prob=q_adj)/epi_weekly$TT
 
 ggplot() +
-  geom_point(data = data.frame("X"= epi_weekly$rel_date, "q_hat"= epi_weekly$k/epi_weekly$TT), 
+  geom_point(data = data.frame("X"= epi_data$rel_date, "q_hat"= epi_data$k/epi_data$TT), 
              aes(x = X, y=q_hat), color = "red") +
-  geom_line(data = data.frame("X"= epi_weekly$rel_date, "p"= q_adj),
-          aes(x = X, y=p), color = "blue") #+
+  geom_line(data = data.frame("X"= epi_data$rel_date, "q"= state_q),
+          aes(x = X, y=q), color = "blue") +
+  geom_line(data = data.frame("X"= epi_data$rel_date, "q_prime"= q_adj),
+            aes(x = X, y=q_prime), color = "green")
   # geom_ribbon(data = data.frame("X"= epi_weekly$rel_date, "low"= p_low, "high"= p_high),
   #             aes(x=X, ymin=low, ymax=high), fill="blue", alpha=0.5)
-  # geom_line(data = data.frame("X"= epi_weekly$rel_date, "q"= p_weekly/epi_weekly$pi),
-  #         aes(x = X, y=q), color = "red")
+
+ggplot() +
+  geom_line(data = data.frame("X"= epi_data$rel_date, "pi"= epi_data$pi),
+          aes(x = X, y=pi), color = "red")
 
 # Calc. binomial probability
 #k_T_q <- cbind(k_weekly, TT_weekly, q)
 #neg_log_L <- -sum(apply(k_T_q, 1, function(xx) dbinom(xx[1], size=xx[2], prob=xx[3], log=TRUE)))
-neg_log_L <- -sum(dbinom(epi_weekly$k, size=epi_weekly$TT, prob=q_adj, log=TRUE))
+-sum(dbinom(epi_data$k, size=epi_data$TT, prob=q_adj, log=TRUE)) + 1e2*sum(state_q-q_adj)

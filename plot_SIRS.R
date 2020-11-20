@@ -11,22 +11,22 @@ source("SIRS_model.R")
 
 ######## Plot likelihood surface #########
 
-LL_surf <- readRDS("fit_results/CAsunGS1113-1132.rds")
+LL_surf <- readRDS("fit_results/TX0sun111917GS.rds")
 LL_mtx <- LL_surf[[3]]
 colnames(LL_mtx) <- LL_surf[[2]]
 rownames(LL_mtx) <- LL_surf[[1]]
 
 long_LL <- melt(LL_mtx)
-colnames(long_LL) <- c("k", "q_0", "R0")
+colnames(long_LL) <- c("k", "b", "R0")
 long_LL[which.min(long_LL$R0), ]
 
-ggplot(long_LL, aes(k, q_0)) +
+ggplot(long_LL, aes(k, b)) +
   geom_raster(aes(fill = R0), interpolate = FALSE) + 
   scale_fill_distiller(palette = "Spectral", direction = -1, trans = "log")
 
 ##########################################
 
-state_code <- "CA"
+state_code <- "NY"
 ## Load population
 state_pop <- read.delim("state_lv_data/state_pop.tsv")
 census_pop <- state_pop$pop[state_pop$code==state_code]
@@ -63,17 +63,21 @@ q_99cap <- max(q_99$upper)
 
 ## Load fitting results
 
-DE_fit <- readRDS("fit_results/CAbothDE1111-1751.rds")
+DE_fit <- readRDS("fit_results/NY0.6both111700_DE.rds")
 cat(DE_fit$optim$bestmem, ";", DE_fit$optim$bestval)
 
-# NM_fit <- readRDS(paste0("fit_results/", state_code, "_NMoptim.rds"))
-# cat(NM_fit$par, ";", NM_fit$value)
+SANN_fit <- readRDS(paste0("fit_results/TX1sun111615SANN.rds"))
+cat(SANN_fit$par, ";", SANN_fit$value)
 
-state_p <- SIRS1var_pred(DE_fit$optim$bestmem, sunob, census_pop)           # sunrise model
-state_p <- SIRS1var_pred(DE_fit$optim$bestmem, climob, census_pop)          # climate model
-state_p <- SIRS2var_pred(DE_fit$optim$bestmem, sunob, climob, census_pop)   # combinaed model
+# choose 1
+best <- DE_fit$optim$bestmem
+best <- SANN_fit$par
+# choose 1
+state_p <- SIRS1var_pred(best, sunob, census_pop)           # sunrise model
+state_p <- SIRS1var_pred(best, climob, census_pop)          # climate model
+state_p <- SIRS2var_pred(best, sunob, climob, census_pop)   # combinaed model
 
-mod_dat <- p2q(state_p, epi_data, q_99cap)
+mod_dat <- p2q(state_p, epi_data, q_99cap, 0.6) # <= remember to change scaling here
 q_adj <- mod_dat[[1]]
 epi_weekly <- mod_dat[[2]]
 
