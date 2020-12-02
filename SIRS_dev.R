@@ -10,10 +10,32 @@ source("SIRS_model.R")
 
 #args <- commandArgs(trailingOnly=TRUE)
 
-state_code <- "NY"
-
-## Load population
 state_pop <- read.delim("state_lv_data/state_pop.tsv")
+state_pop$missing <- rep_len(NaN, nrow(state_pop))
+
+## check missing data ##
+for (state_idx in seq(nrow(state_pop))){
+  ## Load flu data
+  epiob <- read.csv(paste0("state_lv_data/Flu_data/flu_epi_", state_pop$code[state_idx], ".csv")) # blank field automatically NA
+  epiob <- epiob[epiob$WEEK <= 52, ] # cap year to 52 weeks
+  
+  k <- epiob$TOTAL.A + epiob$TOTAL.B
+  TT <- epiob$TOTAL.SPECIMENS
+  pi <- epiob$X.UNWEIGHTED.ILI/100
+  mask <- is.na(TT) | (TT == 0) | (pi == 0) # missing data: no. of test is 0 or NA, or no sympotomatic patient
+  cat(state_pop$code[state_idx], sum(mask), "weeks masked", "\n")
+  state_pop$missing[state_idx] <- sum(mask)
+}
+state_pop <- state_pop[order(state_pop$missing, decreasing = TRUE), ]
+write.table(state_pop, "/Users/mo/Downloads/missing_data.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+hist(state_pop$missing, breaks = 20)
+QC <- state_pop$missing < 200
+View(state_pop[QC,])
+write.table(state_pop$code[QC], "states_QC200.tsv", sep = "\t", row.names = FALSE, quote = FALSE, col.names = FALSE)
+####
+
+state_code <- "NY"
+## Load population
 census_pop <- state_pop$pop[state_pop$code==state_code]
 
 ## Load sunrise data
@@ -32,22 +54,7 @@ p2 <- qplot(seq(365), climob)
 grid.arrange(p1, p2, ncol = 1)
 
 ## Load flu data
-epiob <- read.csv(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv")) # blank field automatically NA
-epiob <- epiob[epiob$WEEK <= 52, ] # cap year to 52 weeks
-
-# calculate relative date to the beginning of the 1st year in the data
-y0 <- epiob$YEAR[1]
-rel_date <- (epiob$YEAR-y0)*364 + epiob$WEEK*7 - 3
-#no_years <- ceiling(max(rel_date)/365)
-
-k <- epiob$TOTAL.A + epiob$TOTAL.B
-TT <- epiob$TOTAL.SPECIMENS
-pi <- epiob$X.UNWEIGHTED.ILI/100
-mask <- is.na(TT) | (TT == 0) | (pi == 0) # missing data: no. of test is 0 or NA, or no sympotomatic patient
-cat(sum(mask), "weeks masked", "\n")
-
-epi_data <- data.frame("rel_date"=rel_date, "k"=k, "TT"=TT, "pi"=pi)
-epi_data <- epi_data[!mask, ]
+epi_data <- load_state_epi(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv"))
 
 # # calculate scaling factors
 # p_df <- data.frame("p_hat"=pi*k/TT, "week"=epiob$WEEK)
@@ -74,26 +81,31 @@ epi_data <- epi_data[!mask, ]
 # cat("c:", scaler, "\n")
 
 # Calculate q_cap
-q_conf <- binom.confint(k, TT, conf.level = 1-1e-3, methods = c("exact"))
-q_conf$date <- rel_date
-ggplot() +
-  geom_line(data = q_conf, aes(x = date, y=mean), color = "blue") +
-  geom_ribbon(data = q_conf, aes(x=date, ymin=lower, ymax=upper), fill="blue", alpha=0.5) +
-  geom_line(data = data.frame("X"= epi_data$rel_date, "pi"= epi_data$pi),
-            aes(x = X, y=pi), color = "red") +
-  geom_line(data = data.frame("X"= epi_data$rel_date, "p_hat"= k/TT*pi),
-            aes(x = X, y=p_hat), color = "orange")
+q_conf <- binom.confint(epi_data$k, epi_data$TT, conf.level = 1-1e-3, methods = c("exact"))
+# q_conf$date <- rel_date
+# ggplot() +
+#   geom_line(data = q_conf, aes(x = date, y=mean), color = "blue") +
+#   geom_ribbon(data = q_conf, aes(x=date, ymin=lower, ymax=upper), fill="blue", alpha=0.5) +
+#   geom_line(data = data.frame("X"= epi_data$rel_date, "pi"= epi_data$pi),
+#             aes(x = X, y=pi), color = "red") +
+#   geom_line(data = data.frame("X"= epi_data$rel_date, "p_hat"= k/TT*pi),
+#             aes(x = X, y=p_hat), color = "orange")
 
 q_cap <- max(q_conf$upper)
 
 #### Test that steady state reached regardless of when the 1st infection is seeded #####
 ## PASSED
 
-state_p <- SIRS1var_pred(c(16.32242, 16.32242*0.5535876), sunob, census_pop)
-state_p <- SIRS1var_pred(c(-272.7839, -272.7839*0.01), climob, census_pop)
-state_p <- SIRS2var_pred(c(17.01981, -15.6381, 17.01981*0.5493769-15.6381*0.01599056), sunob, climob, census_pop)
+state_p <- SIRSvar_pred("R0_exp", c(-100), list(climob), census_pop)
 
-plot_range = seq(0*364+1, 10*364) # take last 5 years
+state_p <- SIRSvar_pred("R0_cdexp", c(-10, 0.6), list(sunob), census_pop)
+state_p <- SIRSvar_pred("R0_bell", c(-50, 0.6), list(sunob), census_pop)
+
+state_p <- SIRSvar_pred("R0_linEE" ,c(-10, 0.6, -50), list(sunob, climob), census_pop)
+state_p <- SIRSvar_pred("R0_linGE" ,c(-50, 0.6, -50), list(sunob, climob), census_pop)
+state_p <- SIRSvar_pred("R0_mixGE" ,c(-10, 0.6, -50, 0.75), list(sunob, climob), census_pop)
+
+plot_range = seq(45*364+1, 50*364) # take last 5 years
 plot(1:length(plot_range), state_p[plot_range])
 
 

@@ -26,7 +26,7 @@ ggplot(long_LL, aes(k, b)) +
 
 ##########################################
 
-state_code <- "NY"
+state_code <- "CA"
 ## Load population
 state_pop <- read.delim("state_lv_data/state_pop.tsv")
 census_pop <- state_pop$pop[state_pop$code==state_code]
@@ -53,17 +53,20 @@ rel_date <- (epiob$YEAR-y0)*364 + epiob$WEEK*7 - 3
 k <- epiob$TOTAL.A + epiob$TOTAL.B
 TT <- epiob$TOTAL.SPECIMENS
 pi <- epiob$X.UNWEIGHTED.ILI/100
+mask <- is.na(TT) | (TT == 0) | (pi == 0) # missing data: no. of test is 0 or NA, or no sympotomatic patient
+cat(sum(mask), "weeks masked", "\n")
 
 epi_data <- data.frame("rel_date"=rel_date, "k"=k, "TT"=TT, "pi"=pi)
+epi_data <- epi_data[!mask, ]
 
-missing <- is.na(TT) | (TT == 0)
 # Calculate q_cap
-q_99 <- binom.confint(k[!missing], TT[!missing], conf.level = 0.99, methods = c("exact"))
-q_99cap <- max(q_99$upper)
+q_conf <- binom.confint(epi_data$k, epi_data$TT, conf.level = 1-1e-3, methods = c("exact"))
+q_99cap <- max(q_conf$upper)
+cat(">> q capped at", q_99cap, "\n")
 
 ## Load fitting results
 
-DE_fit <- readRDS("fit_results/NY0.6both111700_DE.rds")
+DE_fit <- readRDS("fit_results/CA1both112008_DE.rds")
 cat(DE_fit$optim$bestmem, ";", DE_fit$optim$bestval)
 
 SANN_fit <- readRDS(paste0("fit_results/TX1sun111615SANN.rds"))
@@ -73,37 +76,39 @@ cat(SANN_fit$par, ";", SANN_fit$value)
 best <- DE_fit$optim$bestmem
 best <- SANN_fit$par
 # choose 1
-state_p <- SIRS1var_pred(best, sunob, census_pop)           # sunrise model
-state_p <- SIRS1var_pred(best, climob, census_pop)          # climate model
-state_p <- SIRS2var_pred(best, sunob, climob, census_pop)   # combinaed model
+state_p <- SIRS1var_pred(best[1:2], sunob, census_pop)           # sunrise model
+state_p <- SIRS1var_pred(best[1:2], climob, census_pop)          # climate model
+state_q <- p2q(state_p, epi_data, best[3])
 
-mod_dat <- p2q(state_p, epi_data, q_99cap, 0.6) # <= remember to change scaling here
-q_adj <- mod_dat[[1]]
-epi_weekly <- mod_dat[[2]]
+state_p <- SIRS2var_pred(best[1:3], sunob, climob, census_pop)   # combinaed model
+state_q <- p2q(state_p, epi_data, best[4])
 
-neg_log_L <- -sum(dbinom(epi_weekly$k, size=epi_weekly$TT, prob=q_adj, log=TRUE))
+q_adj <- pmin(state_q, q_99cap)
+
+lambda <- 1
+neg_log_L <- -sum(dbinom(epi_data$k, size=epi_data$TT, prob=q_adj, log=TRUE)) + lambda*sum(state_q-q_adj)
 
 ## Plot in p space
-data_years <- ceiling(max(epi_weekly$rel_date)/364)
+data_years <- ceiling(max(epi_data$rel_date)/364)
 model_range <- seq((50-data_years)*364+1, 50*364)
 p_adj <- state_p[model_range] # take only the number of years corresponding to data
-p_adj <- p_adj*1
+p_adj <- p_adj*best[4]
 
 ggplot() + 
   geom_line(data = data.frame("X"= seq(length(p_adj)), "p"= p_adj), 
             aes(x = X, y=p), color = "blue") +
-  geom_point(data = data.frame("X"= epi_weekly$rel_date, "p_hat"= epi_weekly$k/epi_weekly$TT*epi_weekly$pi), 
+  geom_point(data = data.frame("X"= epi_data$rel_date, "p_hat"= epi_data$k/epi_data$TT*epi_data$pi), 
              aes(x = X, y=p_hat), color = "red", size=0.5)
 
 ## Plot in q space
-q_low <- qbinom(0.025, size=epi_weekly$TT, prob=q_adj)/epi_weekly$TT
-q_high <- qbinom(0.975, size=epi_weekly$TT, prob=q_adj)/epi_weekly$TT
+q_low <- qbinom(0.025, size=epi_data$TT, prob=q_adj)/epi_data$TT
+q_high <- qbinom(0.975, size=epi_data$TT, prob=q_adj)/epi_data$TT
 
 ggplot() + 
-  geom_line(data = data.frame("X"= epi_weekly$rel_date, "q"= q_adj), 
+  geom_line(data = data.frame("X"= epi_data$rel_date, "q"= q_adj), 
             aes(x = X, y=q), color = "blue") +
-  geom_ribbon(data = data.frame("X"= epi_weekly$rel_date, "low"= q_low, "high"= q_high),
+  geom_ribbon(data = data.frame("X"= epi_data$rel_date, "low"= q_low, "high"= q_high),
               aes(x=X, ymin=low, ymax=high), fill="blue", alpha=0.2) +
-  geom_point(data = data.frame("X"= epi_weekly$rel_date, "q_hat"= epi_weekly$k/epi_weekly$TT), 
+  geom_point(data = data.frame("X"= epi_data$rel_date, "q_hat"= epi_data$k/epi_data$TT), 
              aes(x = X, y=q_hat), color = "red", size=0.5)
 

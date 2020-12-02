@@ -6,33 +6,35 @@
 
 * `SIRS_model.R`: __Core functions of the SIRS model__
 
-  `R0_sig`: Single variable sigmoid function for R0
+  `R0_*`: A library of R0 models, see code for details
   
-  `R0_sig2`: Two variable sigmoid function for R0
+  `SIRS_R0`: Differention equations of SIRS model given pre-computed R0 values
   
-  `SIRS_R0sig`: Differention equations of SIRS model given pre-computed R0 values
-  
-  `SIRS1var_pred`: Run SIRS model with single variable given sigmoid parameters, returns raw model predictions (p)
-  
-  `SIRS2var_pred`:  Run SIRS model with two variables given sigmoid parameters, returns raw model predictions (p)
+  `SIRSvar_pred`: Run SIRS model given i) R0 model, ii) R0 parameters, iii) a list of variables, and iv) population size, returns raw model predictions (p)
   
   `p2q`: Scaling and capping of model predictions given data, returns binomial prob (q)
   
-  `binom2_L`: Wrapper for 2 variable binomial likelihood
+  `binom_Lp`: Wrapper for single state binomial likelihood
   
-  `binom1_L`: Wrapper for 1 variable binomial likelihood
+  `load_state_epi`: Function for loading state epidemiological data
 
-* `fit_SIRS.R`: __Fit sigmoid model__
+* `fit_all.R`: __Fit model jointly to many states__
 
-    Usage: `$ nohup ./fit_SIRS.R [state_code] [variable] [optim_arg] [scaler] &`
+  Usage: `$ nohup ./fit_all.R [state_ls.tsv] [R0_model] [share_incpt] [lambda] &`
 
-    		`[state_code]`: 2-letter state code
+    `[state_code]`: 2-letter state code
 
-    		`[variable]`: one of `sun`, `cli` or `both`
-    		
-    		`[optim_arg]`: see script
+    `[R0_model]`: functional form of R0, options: `exp`, `cdexp`, `bell`, `linEE`, `linGE`, `mixGE`
 
-        `[scaler]`: a constant to down scale model predicted `p`, (0, 1]
+    `[share_incpt]`: `0` or `1`, whether states share the same "intercept" (peak in sunrise model) or not
+
+    `[lambda]`: penalty for neg-log-likelihood when model prediction exceeds cap
+
+* `fit_state.R`: __Fit model to one state__
+
+  Usage: `$ nohup ./fit_state.R [state_code] [R0_model] [lambda] &`
+
+    `[state_code]`: 2-letter state code
 
 * `plot_SIRS.R`: __Some plotting functions__ (deprecated, to be updated)
 

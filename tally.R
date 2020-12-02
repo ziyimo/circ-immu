@@ -1,31 +1,40 @@
 #!/usr/bin/env Rscript
 
+library(stringr)
 library(DEoptim)
 
-states <- c("AZ", "CA", "IL", "NY", "TX", "WA")
+fit_files <- list.files("fit_results", pattern = "*\\.rds")
 
-fit_df <- data.frame(sun_nLL=numeric(length(states)), sun_k=numeric(length(states)), sun_x0=numeric(length(states)),
-                     cli_nLL=numeric(length(states)), cli_alpha=numeric(length(states)), row.names = states)
+fit_df <- NULL
 
-for (state_idx in seq(length(states))) {
+for (file_name in fit_files) {
   
-  state_code <- states[state_idx]
-  DE_fit <- readRDS(paste0("fit_results/", state_code, "_DEoptim.rds"))
-  cat(state_code, "/sun, DE:", DE_fit$optim$bestmem, ";", DE_fit$optim$bestval, "\n")
-  fit_df$sun_nLL[state_idx] <- DE_fit$optim$bestval
-  fit_df$sun_k[state_idx] <- DE_fit$optim$bestmem[1]
-  fit_df$sun_x0[state_idx] <- DE_fit$optim$bestmem[2]
+  code_method <- str_extract_all(file_name, "[A-Z]+")[[1]]
+  lambda_val <- as.numeric(str_extract(file_name, "[0-9]+"))
+  variable <- str_extract(file_name, "[a-z]+")
   
-  NM_fit <- readRDS(paste0("fit_results/", state_code, "_NMoptim.rds"))
-  cat(state_code, "/sun, NM:", NM_fit$par, ";", NM_fit$value, "\n")
+  if (code_method[2] == "DE"){
+    DE_fit <- readRDS(paste0("fit_results/", file_name))
+    negLL <- DE_fit$optim$bestval
+    bestParam <- DE_fit$optim$bestmem
+  } else if (code_method[2] != "GS"){
+    optim_fit <- readRDS(paste0("fit_results/", file_name))
+    bestParam <- optim_fit$par
+    negLL <- optim_fit$value
+  } else{
+    next
+  }
   
-  cli_negLL <- read.table(paste0("fit_results/", state_code, "_cli_negLL.tsv"), sep = "\t", col.names = c("alpha", "negLL"))
-  #qplot(cli_negLL$alpha, cli_negLL$negLL)
-  cli_fit <-cli_negLL[which.min(cli_negLL$negLL), ]
-  cat(state_code, "/cli:", cli_fit$alpha, ";", cli_fit$negLL, "\n")
-  fit_df$cli_nLL[state_idx] <- cli_fit$negLL
-  fit_df$cli_alpha[state_idx] <- cli_fit$alpha
-    
+  if (variable == "both"){
+    fit_df <- rbind(fit_df, c(code_method, lambda_val, variable, negLL, bestParam))
+  } else if (variable == "cli"){
+    fit_df <- rbind(fit_df, c(code_method, lambda_val, variable, negLL, "NA", bestParam))
+  } else if (variable == "sun"){
+    fit_df <- rbind(fit_df, c(code_method, lambda_val, variable, negLL, bestParam[1], "NA", bestParam[2:3]))
+  }
 }
+
+fit_df <- as.data.frame(fit_df)
+colnames(fit_df) <- c("state", "method", "lambda", "var", "negLL", "k_sun", "k_cli", "b", "c")
 
 write.csv(fit_df, file="fit_results/prelim.csv")
