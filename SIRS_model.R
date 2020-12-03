@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-library(deSolve)
+library("deSolve")
 
 param_bounds <- list() # boundaries of parameters, first element is "c"
 

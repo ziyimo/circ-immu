@@ -1,9 +1,12 @@
 #!/usr/bin/env Rscript
 
-library(DEoptim)
-library(binom)
+#.libPaths() # sanity check
+library("parallel")
+library("DEoptim")
+library("binom")
 
 source("SIRS_model.R")
+var_cache <- ls()
 
 time_stamp <- format(Sys.time(), "%m%d")
 
@@ -37,7 +40,9 @@ all_state_hum <- read.csv("state_lv_data/state_humidity_2014_2018.csv")
 all_state_hum <- all_state_hum[all_state_hum$X != "2016-02-29", ] # get rid of leap year Feb 29
 
 state_data <- list()
-for (state_code in states$V1){
+
+for (state_i in seq(nrow(states))){
+  state_code <- states$V1[state_i]
   cat(">>> Loading state data:", state_code, "<<<\n")
   census_pop <- state_pop$pop[state_pop$code==state_code]
   if (R0_mod %in% c("cdexp", "bell", "linEE", "linGE", "mixGE")){
@@ -63,7 +68,7 @@ for (state_code in states$V1){
   q_99cap <- max(q_conf$upper)
   cat(">> q capped at", q_99cap, "\n")
   
-  state_data[[state_code]] <- list(pop=census_pop, var=varob, epi=epi_data, cap=q_99cap)
+  state_data[[state_code]] <- list(idx=state_i, pop=census_pop, var=varob, epi=epi_data, cap=q_99cap)
 }
 
 if (share_intcpt){ # all states share same parameter set
@@ -92,24 +97,29 @@ if (share_intcpt){ # all states share same parameter set
   }
 }
 
+Lp_wrapper <- function(state_elem, p_vec){
+  neg_LL <- binom_Lp(get_state_prms(p_vec, state_elem$idx), 
+                     paste0("R0_", R0_mod),
+                     state_elem$var,
+                     state_elem$epi,
+                     state_elem$pop,
+                     state_elem$cap,
+                     l_pnl)
+  return(neg_LL)
+}
+
 all_state_Lp <- function(prms){ # everything else read as global variable
-  cum_negLL <- 0
-  
-  for (state_i in seq(nrow(states))) {
-    cum_negLL <- cum_negLL + binom_Lp(get_state_prms(prms, state_i), 
-                                      paste0("R0_", R0_mod),
-                                      state_data[[states$V1[state_i]]]$var,
-                                      state_data[[states$V1[state_i]]]$epi,
-                                      state_data[[states$V1[state_i]]]$pop,
-                                      state_data[[states$V1[state_i]]]$cap,
-                                      l_pnl)
-  }
-  return(cum_negLL)
+  states_negLL <- sapply(X=state_data, FUN=Lp_wrapper, p_vec=prms)
+  return(sum(states_negLL))
 }
 
 cat(">> Fitting with R0 model:", R0_mod, "; lambda =", l_pnl, "\nLower:", p_lower, "\nUpper:", p_upper, "\n")
+cat(detectCores(), "cores seen\n")
+clstr <- makeCluster(15, type = "FORK") # hard-code the number of cores to use
 evo_optim <- DEoptim(all_state_Lp, lower=p_lower, upper=p_upper,
-                     control=DEoptim.control(trace = 5, reltol = 1e-6, itermax = 1000, steptol = 200))
+                     control=DEoptim.control(trace = 5, reltol = 1e-6, itermax = 1000, steptol = 200,
+                                             parallelType=1, cluster=clstr, packages=c("deSolve"),
+                                             parVar=c(var_cache, "state_data", "Lp_wrapper", "get_state_prms", "R0_mod", "l_pnl")))
 
 saveRDS(evo_optim, file = paste0("fit_results/", handle, ".rds"))
 sink()

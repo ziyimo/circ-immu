@@ -15,3 +15,7 @@ nohup.out
 # Results directory #
 #####################
 fit_results/**
+
+# UGE generated files #
+#######################
+UGE*.o
