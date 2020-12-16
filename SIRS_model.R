@@ -4,107 +4,95 @@ library("deSolve")
 
 param_bounds <- list() # boundaries of parameters, first element is "c"
 
+# sinusoidal R0 model
+R0_cos <- function(t, phi, R0base = 2, R0min = 1.2){ # a sinusoidal baseline model
+  R0 <- (R0base - R0min)/2*cos(2*pi/364*(t - phi)) + (R0base + R0min)/2
+  return(R0)
+}
+param_bounds[["cos"]] <- list(low = c(0, 1), high = c(1, 364))
+
 # single var R0 models
-R0_sig <- function(q_t, k, b, R0base = 2, R0min = 1.2){ # single variable sigmoid
-  R0 <- (R0base-R0min)/(1+exp(-k*q_t+b))+R0min
-  return(R0)
-}
 
-R0_exp <- function(q_t, alpha, R0base = 2, R0min = 1.2){ # Baker et al. exponential decay
-  R0 <- exp(alpha*q_t + log(R0base - R0min)) + R0min
+R0_hum <- function(h_t, alpha, R0base = 2, R0min = 1.2){ # Baker et al. exponential decay
+  R0 <- exp(alpha*h_t + log(R0base - R0min)) + R0min
   return(R0)
 }
-param_bounds[["exp"]] <- list(low = c(0, -500), high = c(1, 0))
-  
-R0_cdexp <- function(q_t, alpha, q_0, R0base = 2, R0min = 1.2){ # centered double exp decay
-  R0 <- exp(alpha*abs(q_t-q_0) + log(R0base - R0min)) + R0min
-  return(R0)
-}
-param_bounds[["cdexp"]] <- list(low = c(0, -100, 0), high = c(1, 0, 1))
-  
-R0_bell <- function(q_t, alpha, q_0, R0base = 2, R0min = 1.2){
-  #R0 <- exp(-((q_t-mu)^2)/(2*sigma^2) + log(R0base - R0min)) + R0min
-  R0 <- exp(alpha*(q_t-q_0)^2 + log(R0base - R0min)) + R0min # reparameterized
-  return(R0)
-}
-param_bounds[["bell"]] <- list(low = c(0, -1000, 0), high = c(1, 0, 1))
+param_bounds[["hum"]] <- list(low = c(0, -300), high = c(1, 0))
 
+R0_day <- R0_hum # alias for exponential decay modeling of daytime
+param_bounds[["day"]] <- list(low = c(0, -100), high = c(1, 0))
+  
 # composite R0 models
 
-R0_sig2 <- function(q_t, r_t, k1, k2, b, R0base = 2, R0min = 1.2){ # two variable sigmoid
-  R0 <- (R0base-R0min)/(1+exp(-k1*q_t-k2*r_t+b))+R0min
+R0_hd <- function(h_t, d_t, alpha_1, alpha_2, R0base = 2, R0min = 1.2){ # humidity + daytime
+  R0 <- exp(alpha_1*h_t + alpha_2*d_t + log(R0base - R0min)) + R0min
   return(R0)
 }
+param_bounds[["hd"]] <- list(low = c(0, -300, -100), high = c(1, 0, 0))
 
-R0_linEE <- function(q_t, r_t, alpha_1, q_0, alpha_2, R0base = 2, R0min = 1.2){
-  R0 <- exp(alpha_1*abs(q_t-q_0) + alpha_2*r_t + log(R0base - R0min)) + R0min
+R0_sd <- function(s_t, d_t, alpha_1, alpha_2, R0base = 2, R0min = 1.2){ # sunrise + daytime
+  R0 <- exp(alpha_1*(1-s_t) + alpha_2*d_t + log(R0base - R0min)) + R0min
   return(R0)
 }
-param_bounds[["linEE"]] <- list(low = c(0, -100, 0, -500), high = c(1, 0, 1, 0))
+param_bounds[["sd"]] <- list(low = c(0, -100, -100), high = c(1, 0, 0))
 
-R0_linGE <- function(q_t, r_t, alpha_1, q_0, alpha_2, R0base = 2, R0min = 1.2){
-  R0 <- exp(alpha_1*(q_t-q_0)^2 + alpha_2*r_t + log(R0base - R0min)) + R0min
+R0_hsd <- function(h_t, s_t, d_t, alpha_1, alpha_2, alpha_3, R0base = 2, R0min = 1.2){ # humidity + sunrise + daytime
+  R0 <- exp(alpha_1*h_t + alpha_2*(1-s_t) + alpha_3*d_t + log(R0base - R0min)) + R0min
   return(R0)
 }
-param_bounds[["linGE"]] <- list(low = c(0, -1000, 0, -500), high = c(1, 0, 1, 0))
+param_bounds[["hsd"]] <- list(low = c(0, -300, -100, -100), high = c(1, 0, 0, 0))
 
-R0_mixGE <- function(q_t, r_t, alpha_1, q_0, alpha_2, rho, R0base = 2, R0min = 1.2){
-  R0 <- (rho*exp(alpha_1*(q_t-q_0)^2) + (1-rho)*exp(alpha_2*r_t))*(R0base - R0min) + R0min
-}
-param_bounds[["mixGE"]] <- list(low = c(0, -1000, 0, -500, 0), high = c(1, 0, 1, 0, 1))
 
 ######## Plot R0 models #######
 if(FALSE){
   library(ggplot2)
   library(gridExtra)
   
+  plot(seq(364), R0_cos(seq(364), 120))
+  
   clean <- theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
                  panel.background = element_blank(), axis.line = element_line(colour = "black"),
                  text = element_text(size=20))
   
   sun_range = seq(0, 1, by=0.01)
+  day_range = seq(0, 1, by=0.01)
   cli_range = seq(0, 0.03, by=0.0003)
   
   ggplot() + 
-    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_exp(cli_range, -10)), 
+    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_hum(cli_range, -10)), 
               aes(x = hum, y=R0), color = "#E69F00") +
-    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_exp(cli_range, -100)), 
+    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_hum(cli_range, -100)), 
               aes(x = hum, y=R0), color = "#0072B2") +
-    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_exp(cli_range, -300)), 
+    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_hum(cli_range, -300)), 
               aes(x = hum, y=R0), color = "#009E73") + clean
   
-  p1 <- ggplot() + 
-    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_cdexp(sun_range, -10, 0.5)), 
-              aes(x = sun, y=R0), color = "#E69F00") +
-    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_cdexp(sun_range, -100, 0.6)), 
-              aes(x = sun, y=R0), color = "#0072B2") +
-    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_cdexp(sun_range, -1, 0.6)), 
-              aes(x = sun, y=R0), color = "#009E73") + clean
+  ggplot() + 
+    geom_line(data = data.frame("day"= day_range, "R0"= R0_day(sun_range, -1)), 
+              aes(x = day, y=R0), color = "#E69F00") +
+    geom_line(data = data.frame("day"= day_range, "R0"= R0_day(sun_range, -10)), 
+              aes(x = day, y=R0), color = "#0072B2") +
+    geom_line(data = data.frame("day"= day_range, "R0"= R0_day(sun_range, -100)), 
+              aes(x = day, y=R0), color = "#009E73") + clean
   
-  p2 <- ggplot() + 
-    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_bell(sun_range, -10, 0.5)), 
-              aes(x = sun, y=R0), color = "#E69F00") +
-    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_bell(sun_range, -1000, 0.6)), 
-              aes(x = sun, y=R0), color = "#0072B2") +
-    geom_line(data = data.frame("sun"= sun_range, "R0"= R0_bell(sun_range, -1, 0.6)), 
-              aes(x = sun, y=R0), color = "#009E73") + clean
+  #grid.arrange(p1, p2, ncol = 1)
   
-  grid.arrange(p1, p2, ncol = 1) 
+  hum_day_df <- expand.grid(cli_range, day_range)
+  colnames(hum_day_df) <- c("hum", "day")
   
-  sun_cli_df <- expand.grid(sun_range, cli_range)
-  colnames(sun_cli_df) <- c("sun", "hum")
+  sun_day_df <- expand.grid(sun_range, day_range)
+  colnames(sun_day_df) <- c("sun", "day")
   
-  sun_cli_df$R0 <- R0_linEE(sun_cli_df$sun, sun_cli_df$hum, -1, 0.5, -50)
-  p1 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled() + clean
+  hum_day_df$R0 <- R0_hd(hum_day_df$hum, hum_day_df$day, -100, -1)
+  p1 <- ggplot(hum_day_df, aes(hum, day, z = R0)) + geom_contour_filled() + clean
   
-  sun_cli_df$R0 <- R0_linGE(sun_cli_df$sun, sun_cli_df$hum, -1, 0.5, -50)
-  p2 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled() + clean
+  hum_day_df$R0 <- R0_hd(hum_day_df$hum, hum_day_df$day, -30, -5)
+  p2 <- ggplot(hum_day_df, aes(hum, day, z = R0)) + geom_contour_filled() + clean
   
-  sun_cli_df$R0 <- R0_mixGE(sun_cli_df$sun, sun_cli_df$hum, -10, 0.5, -50, 0.8)
-  p3 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled() + clean
+  sun_day_df$R0 <- R0_sd(sun_day_df$sun, sun_day_df$day, -100, -3)
+  p3 <- ggplot(sun_day_df, aes(sun, day, z = R0)) + geom_contour_filled() + clean
   
-  sun_cli_df$R0 <- R0_mixGE(sun_cli_df$sun, sun_cli_df$hum, -10, 0.5, -50, 0.2)
-  p4 <- ggplot(sun_cli_df, aes(sun, hum, z = R0)) + geom_contour_filled() + clean
+  sun_day_df$R0 <- R0_sd(sun_day_df$sun, sun_day_df$day, -100, -100)
+  p4 <- ggplot(sun_day_df, aes(sun, day, z = R0)) + geom_contour_filled() + clean
   
   grid.arrange(p1, p2, p3, p4, ncol = 2)
   grid.arrange(p2, p3, ncol = 1)

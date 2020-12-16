@@ -1,5 +1,11 @@
 ## circ-immu
 
+#### Dependencies
+
+To make sure the `DEoptim` package used is bug-free for parallelized optimization, install the package included in this repo by
+
+``` R CMD INSTALL DEoptim_2.2-5.tar.gz ```
+
 #### Scripts
 
 * `SIRS_dev.R`: __Sandbox__
@@ -20,13 +26,11 @@
 
 * `fit_all.R`: __Fit model jointly to many states__
 
-  Usage: `$ nohup ./fit_all.R [state_ls.tsv] [R0_model] [share_incpt] [lambda] &`
+  Usage: `$ nohup ./fit_all.R [state_ls.tsv] [R0_model] [lambda] &`
 
     `[state_code]`: 2-letter state code
 
-    `[R0_model]`: functional form of R0, options: `exp`, `cdexp`, `bell`, `linEE`, `linGE`, `mixGE`
-
-    `[share_incpt]`: `0` or `1`, whether states share the same "intercept" (peak in sunrise model) or not
+    `[R0_model]`: functional form of R0, see `SIRS_model.R` code for options
 
     `[lambda]`: penalty for neg-log-likelihood when model prediction exceeds cap
 

@@ -26,73 +26,64 @@ ggplot(long_LL, aes(k, b)) +
 
 ##########################################
 
-state_code <- "CA"
-## Load population
+### Load data
 state_pop <- read.delim("state_lv_data/state_pop.tsv")
-census_pop <- state_pop$pop[state_pop$code==state_code]
-
-## Load sunrise data
 all_state_sun <- read.csv("state_lv_data/state_daily_sunrise_2019.csv")
-sunob <- all_state_sun[[state_code]]/720 # 365 days, scaled to maximum 720 = 12 hours
-
-## Load humidity data
 all_state_hum <- read.csv("state_lv_data/state_humidity_2014_2018.csv")
 all_state_hum <- all_state_hum[all_state_hum$X != "2016-02-29", ] # get rid of leap year Feb 29
+
+state_code <- "AZ"
+
+## Load population
+census_pop <- state_pop$pop[state_pop$code==state_code]
+## Load sunrise data
+sunob <- all_state_sun[[state_code]]/720 # 365 days, scaled to maximum 720 = 12 hours
+## Load humidity data
 climob <- all_state_hum[[state_code]] # multiple years
 climob <- matrix(climob, nrow = length(climob)/365, ncol = 365, byrow = TRUE)
 climob <- colMeans(climob) # 365 days
 
 ## Load flu data
-epiob <- read.csv(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv")) # blank field automatically NA
-epiob <- epiob[epiob$WEEK <= 52, ] # cap year to 52 weeks
+epi_data <- load_state_epi(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv"))
 
-# calculate relative date to the beginning of the 1st year in the data
-y0 <- epiob$YEAR[1]
-rel_date <- (epiob$YEAR-y0)*364 + epiob$WEEK*7 - 3
-
-k <- epiob$TOTAL.A + epiob$TOTAL.B
-TT <- epiob$TOTAL.SPECIMENS
-pi <- epiob$X.UNWEIGHTED.ILI/100
-mask <- is.na(TT) | (TT == 0) | (pi == 0) # missing data: no. of test is 0 or NA, or no sympotomatic patient
-cat(sum(mask), "weeks masked", "\n")
-
-epi_data <- data.frame("rel_date"=rel_date, "k"=k, "TT"=TT, "pi"=pi)
-epi_data <- epi_data[!mask, ]
-
-# Calculate q_cap
+## Calculate q_cap
 q_conf <- binom.confint(epi_data$k, epi_data$TT, conf.level = 1-1e-3, methods = c("exact"))
 q_99cap <- max(q_conf$upper)
 cat(">> q capped at", q_99cap, "\n")
 
-## Load fitting results
+## Run model
 
-DE_fit <- readRDS("fit_results/CA1both112008_DE.rds")
-cat(DE_fit$optim$bestmem, ";", DE_fit$optim$bestval)
+R0_mod <- "linGE"
+lambda <- 1e3
 
-SANN_fit <- readRDS(paste0("fit_results/TX1sun111615SANN.rds"))
-cat(SANN_fit$par, ";", SANN_fit$value)
+if (R0_mod == "exp"){
+  varob <- list(climob)
+} else if (R0_mod %in% c("cdexp", "bell")){
+  varob <- list(sunob)
+} else if (R0_mod %in% c("linEE", "linGE", "mixGE")){
+  varob <- list(sunob, climob)
+}
 
-# choose 1
-best <- DE_fit$optim$bestmem
-best <- SANN_fit$par
-# choose 1
-state_p <- SIRS1var_pred(best[1:2], sunob, census_pop)           # sunrise model
-state_p <- SIRS1var_pred(best[1:2], climob, census_pop)          # climate model
-state_q <- p2q(state_p, epi_data, best[3])
+# DE_fit <- readRDS("fit_results/CA1both112008_DE.rds")
+# cat(DE_fit$optim$bestmem, ";", DE_fit$optim$bestval)
+# 
+# SANN_fit <- readRDS(paste0("fit_results/TX1sun111615SANN.rds"))
+# cat(SANN_fit$par, ";", SANN_fit$value)
 
-state_p <- SIRS2var_pred(best[1:3], sunob, climob, census_pop)   # combinaed model
-state_q <- p2q(state_p, epi_data, best[4])
+best <- c(0.223, -7.251, 0.913, -19.430) #DE_fit$optim$bestmem, SANN_fit$par
 
+state_p <- SIRSvar_pred(paste0("R0_", R0_mod), best[-1], varob, census_pop)
+state_q <- p2q(state_p, epi_data, best[1])
 q_adj <- pmin(state_q, q_99cap)
 
-lambda <- 1
 neg_log_L <- -sum(dbinom(epi_data$k, size=epi_data$TT, prob=q_adj, log=TRUE)) + lambda*sum(state_q-q_adj)
+cat(neg_log_L)
 
 ## Plot in p space
 data_years <- ceiling(max(epi_data$rel_date)/364)
 model_range <- seq((50-data_years)*364+1, 50*364)
 p_adj <- state_p[model_range] # take only the number of years corresponding to data
-p_adj <- p_adj*best[4]
+p_adj <- p_adj*best[1]
 
 ggplot() + 
   geom_line(data = data.frame("X"= seq(length(p_adj)), "p"= p_adj), 

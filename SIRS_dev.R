@@ -82,18 +82,74 @@ epi_data <- load_state_epi(paste0("state_lv_data/Flu_data/flu_epi_", state_code,
 
 # Calculate q_cap
 q_conf <- binom.confint(epi_data$k, epi_data$TT, conf.level = 1-1e-3, methods = c("exact"))
-# q_conf$date <- rel_date
-# ggplot() +
-#   geom_line(data = q_conf, aes(x = date, y=mean), color = "blue") +
-#   geom_ribbon(data = q_conf, aes(x=date, ymin=lower, ymax=upper), fill="blue", alpha=0.5) +
-#   geom_line(data = data.frame("X"= epi_data$rel_date, "pi"= epi_data$pi),
-#             aes(x = X, y=pi), color = "red") +
-#   geom_line(data = data.frame("X"= epi_data$rel_date, "p_hat"= k/TT*pi),
-#             aes(x = X, y=p_hat), color = "orange")
+q_conf$date <- epi_data$rel_date
+ggplot() +
+  geom_line(data = q_conf, aes(x = date, y=mean), color = "blue") +
+  geom_ribbon(data = q_conf, aes(x=date, ymin=lower, ymax=upper), fill="blue", alpha=0.5) #+
+  # geom_line(data = data.frame("X"= epi_data$rel_date, "pi"= epi_data$pi),
+  #           aes(x = X, y=pi), color = "red") +
+  # geom_line(data = data.frame("X"= epi_data$rel_date, "p_hat"= k/TT*pi),
+  #           aes(x = X, y=p_hat), color = "orange")
 
-q_cap <- max(q_conf$upper)
+q_cap <- min(max(q_conf$upper), 1-1e-3)
+
+### Troubleshoot const R0 ###
+const_R0 <- 1.2
+
+xstart <- c(S = census_pop-1, I = 1, R = 0) # use actual state population
+# some hard-coded parameters
+paras = list(D = 5, 
+             L = 40*7, 
+             R0 = rep(const_R0, times = 364*tot_years)[(offset+1):(364*tot_years)]) # pre-calculated R0 values
+
+predictions <- as.data.frame(ode(xstart, times, SIRS_R0, paras)) # run SIRS model
+raw_p <- predictions$I/census_pop
+state_q <- p2q(raw_p, epi_data, 1)
+q_adj <- pmin(state_q, q_cap) # cap the value of q, this is q'
+neg_log_L <- -sum(dbinom(epi_data$k, size=epi_data$TT, prob=q_adj, log=TRUE)) + 10*sum(state_q-q_adj)
+
+
+#############################
 
 #### Test that steady state reached regardless of when the 1st infection is seeded #####
+
+# Global Var (for efficiency)
+offset <- 180 # specify when to seed the single infection
+tot_years <- 10 # no. of years to run SIRS model till steady state
+times <- seq(1, 364 * tot_years, by = 1)[1:(364*tot_years-offset)]
+
+# SIRS model prediction given variables
+#SIRSvar_pred <- function(R0_func, R0_params, var_ls, census_pop){
+# R0_func: string of function name
+# R0_params: vector of parameters
+# var_ls: list of vector(s) of variables (sunrise, humidity)
+
+xstart <- c(S = census_pop-1, I = 1, R = 0) # use actual state population
+annual_R0 <- do.call("R0_bell", c(list(sunob), as.list(c(-50, 0.6))))
+
+# some hard-coded parameters
+paras = list(D = 5,
+             L = 40*7,
+             R0 = rep(head(annual_R0, 364), times = tot_years)[(offset+1):(364*tot_years)]) # pre-calculated R0 values
+
+predictions2 <- as.data.frame(ode(xstart, times, SIRS_R0, paras)) # run SIRS model
+predictions2$time <- predictions2$time+offset
+
+p1 <- ggplot() +
+  geom_line(data = predictions1, aes(x = time, y=S), color = "black") +
+  geom_line(data = predictions1, aes(x = time, y=I), color = "red") +
+  geom_line(data = predictions1, aes(x = time, y=R), color = "blue") +
+  xlim(0, tot_years*364)
+
+p2 <- ggplot() +
+  geom_line(data = predictions2, aes(x = time, y=S), color = "black") +
+  geom_line(data = predictions2, aes(x = time, y=I), color = "red") +
+  geom_line(data = predictions2, aes(x = time, y=R), color = "blue") + 
+  xlim(0, tot_years*364)
+
+grid.arrange(p1, p2, ncol = 1)
+
+
 ## PASSED
 
 state_p <- SIRSvar_pred("R0_exp", c(-100), list(climob), census_pop)
