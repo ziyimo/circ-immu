@@ -34,7 +34,7 @@ View(state_pop[QC,])
 write.table(state_pop$code[QC], "states_QC200.tsv", sep = "\t", row.names = FALSE, quote = FALSE, col.names = FALSE)
 ####
 
-state_code <- "NY"
+state_code <- "WV"
 ## Load population
 census_pop <- state_pop$pop[state_pop$code==state_code]
 
@@ -113,6 +113,10 @@ neg_log_L <- -sum(dbinom(epi_data$k, size=epi_data$TT, prob=q_adj, log=TRUE)) + 
 
 #### Test that steady state reached regardless of when the 1st infection is seeded #####
 
+clean <- theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+               panel.background = element_blank(), axis.line = element_line(colour = "black"),
+               text = element_text(size=20))
+
 # Global Var (for efficiency)
 offset <- 180 # specify when to seed the single infection
 tot_years <- 10 # no. of years to run SIRS model till steady state
@@ -125,7 +129,7 @@ times <- seq(1, 364 * tot_years, by = 1)[1:(364*tot_years-offset)]
 # var_ls: list of vector(s) of variables (sunrise, humidity)
 
 xstart <- c(S = census_pop-1, I = 1, R = 0) # use actual state population
-annual_R0 <- do.call("R0_bell", c(list(sunob), as.list(c(-50, 0.6))))
+annual_R0 <- do.call("R0_hum", c(list(climob), as.list(c(-60))))
 
 # some hard-coded parameters
 paras = list(D = 5,
@@ -141,11 +145,12 @@ p1 <- ggplot() +
   geom_line(data = predictions1, aes(x = time, y=R), color = "blue") +
   xlim(0, tot_years*364)
 
-p2 <- ggplot() +
+#p2 <- 
+ggplot() +
   geom_line(data = predictions2, aes(x = time, y=S), color = "black") +
   geom_line(data = predictions2, aes(x = time, y=I), color = "red") +
   geom_line(data = predictions2, aes(x = time, y=R), color = "blue") + 
-  xlim(0, tot_years*364)
+  xlim((tot_years-10)*364, tot_years*364) + clean
 
 grid.arrange(p1, p2, ncol = 1)
 
@@ -216,3 +221,72 @@ ggplot() +
 #k_T_q <- cbind(k_weekly, TT_weekly, q)
 #neg_log_L <- -sum(apply(k_T_q, 1, function(xx) dbinom(xx[1], size=xx[2], prob=xx[3], log=TRUE)))
 -sum(dbinom(epi_data$k, size=epi_data$TT, prob=q_adj, log=TRUE)) + 1e2*sum(state_q-q_adj)
+
+### Experiment R0 models ###
+
+library(ggplot2)
+library(gridExtra)
+
+clean <- theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+               panel.background = element_blank(), axis.line = element_line(colour = "black"),
+               text = element_text(size=20))
+
+sun_range = seq(0, 1, by=0.01)
+day_range = seq(0, 1, by=0.01)
+cli_range = seq(0, 0.03, by=0.0003)
+
+R0_expd <- function(x_t, alpha, R0base = 2, R0min = 1.2){
+  R0 <- exp(alpha*x_t + log(R0base - R0min)) + R0min
+  return(R0)
+}
+
+R0_expg <- function(x_t, alpha, R0base = 2, R0min = 1.2){
+  R0 <- exp(alpha*(1-x_t) + log(R0base - R0min)) + R0min
+  return(R0)
+}
+
+R0_bellg <- function(x_t, alpha, R0base = 2, R0min = 1.2){
+  R0 <- exp(alpha*(1-x_t)^2 + log(R0base - R0min)) + R0min
+  return(R0)
+}
+
+ggplot() + 
+  geom_line(data = data.frame("hum"= cli_range, "R0"= R0_expd(cli_range, -10)), 
+            aes(x = hum, y=R0), color = "#E69F00") +
+  geom_line(data = data.frame("hum"= cli_range, "R0"= R0_expd(cli_range, -100)), 
+            aes(x = hum, y=R0), color = "#0072B2") +
+  geom_line(data = data.frame("hum"= cli_range, "R0"= R0_expd(cli_range, -300)), 
+            aes(x = hum, y=R0), color = "#009E73") + clean
+
+ggplot() + 
+  geom_line(data = data.frame("day"= day_range, "R0"= R0_expd(day_range, -1)), 
+            aes(x = day, y=R0), color = "#E69F00") +
+  geom_line(data = data.frame("day"= day_range, "R0"= R0_expd(day_range, -2.5)), 
+            aes(x = day, y=R0), color = "#0072B2") +
+  geom_line(data = data.frame("day"= day_range, "R0"= R0_expd(day_range, -5)), 
+            aes(x = day, y=R0), color = "#009E73") + clean
+
+p1 <- ggplot() + 
+  geom_line(data = data.frame("day"= sun_range, "R0"= R0_expg(sun_range, -1)), 
+            aes(x = day, y=R0), color = "#E69F00") +
+  geom_line(data = data.frame("day"= sun_range, "R0"= R0_expg(sun_range, -3)), 
+            aes(x = day, y=R0), color = "#0072B2") +
+  geom_line(data = data.frame("day"= sun_range, "R0"= R0_expg(sun_range, -6)), 
+            aes(x = day, y=R0), color = "#009E73") + clean
+
+p2 <- ggplot() + 
+  geom_line(data = data.frame("day"= sun_range, "R0"= R0_bellg(sun_range, -1)), 
+            aes(x = day, y=R0), color = "#E69F00") +
+  geom_line(data = data.frame("day"= sun_range, "R0"= R0_bellg(sun_range, -3)), 
+            aes(x = day, y=R0), color = "#0072B2") +
+  geom_line(data = data.frame("day"= sun_range, "R0"= R0_bellg(sun_range, -8)), 
+            aes(x = day, y=R0), color = "#009E73") + clean
+
+grid.arrange(p1, p2, ncol = 1)
+
+
+all_state_sun <- read.csv("state_lv_data/state_daily_sunrise_2019.csv")
+all_state_day <- read.csv("state_lv_data/state_daytime_2019.csv")
+
+hist(as.vector(t(all_state_day[c(-1, -9)]/1440)))
+hist(as.vector(t(all_state_sun[c(-1, -9)]/720)))

@@ -48,13 +48,13 @@ for (state_i in seq(nrow(states))){
   cat(">>> Loading state data:", state_code, "<<<\n")
   census_pop <- state_pop$pop[state_pop$code==state_code]
   
-  if (R0_mod %in% c("sd", "hsd")){
+  if (R0_mod %in% c("s2d2", "hs2d2")){
     sunob <- all_state_sun[[state_code]]/720 # 365 days, scaled to maximum 720 = 12 hours
   }
-  if (R0_mod %in% c("day", "hd", "sd", "hsd")){
+  if (R0_mod %in% c("day2", "hd2", "s2d2", "hs2d2")){
     dayob <- all_state_day[[state_code]]/1440
   }
-  if (R0_mod %in% c("hum", "hd", "hsd")){
+  if (R0_mod %in% c("hum", "hd2", "hs2d2")){
     climob <- all_state_hum[[state_code]] # multiple years
     climob <- matrix(climob, nrow = length(climob)/365, ncol = 365, byrow = TRUE)
     climob <- colMeans(climob) # 365 days
@@ -64,13 +64,13 @@ for (state_i in seq(nrow(states))){
     varob <- list(seq(365))
   } else if (R0_mod == "hum"){
     varob <- list(climob)
-  } else if (R0_mod == "day"){
+  } else if (R0_mod == "day2"){
     varob <- list(dayob)
-  } else if (R0_mod == "hd"){
+  } else if (R0_mod == "hd2"){
     varob <- list(climob, dayob)
-  } else if (R0_mod == "sd"){
+  } else if (R0_mod == "s2d2"){
     varob <- list(sunob, dayob)
-  } else if (R0_mod == "hsd"){
+  } else if (R0_mod == "hs2d2"){
     varob <- list(climob, sunob, dayob)
   }
   

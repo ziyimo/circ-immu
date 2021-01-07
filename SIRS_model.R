@@ -19,28 +19,31 @@ R0_hum <- function(h_t, alpha, R0base = 2, R0min = 1.2){ # Baker et al. exponent
 }
 param_bounds[["hum"]] <- list(low = c(0, -300), high = c(1, 0))
 
-R0_day <- R0_hum # alias for exponential decay modeling of daytime
-param_bounds[["day"]] <- list(low = c(0, -100), high = c(1, 0))
+R0_day2 <- function(d_t, alpha, R0base = 2, R0min = 1.2){
+  R0 <- exp(alpha*d_t^2 + log(R0base - R0min)) + R0min
+  return(R0)
+}
+param_bounds[["day2"]] <- list(low = c(0, -100), high = c(1, 0))
   
 # composite R0 models
 
-R0_hd <- function(h_t, d_t, alpha_1, alpha_2, R0base = 2, R0min = 1.2){ # humidity + daytime
-  R0 <- exp(alpha_1*h_t + alpha_2*d_t + log(R0base - R0min)) + R0min
+R0_hd2 <- function(h_t, d_t, alpha_1, alpha_2, R0base = 2, R0min = 1.2){ # humidity + daytime
+  R0 <- exp(alpha_1*h_t + alpha_2*d_t^2 + log(R0base - R0min)) + R0min
   return(R0)
 }
-param_bounds[["hd"]] <- list(low = c(0, -300, -100), high = c(1, 0, 0))
+param_bounds[["hd2"]] <- list(low = c(0, -300, -100), high = c(1, 0, 0))
 
-R0_sd <- function(s_t, d_t, alpha_1, alpha_2, R0base = 2, R0min = 1.2){ # sunrise + daytime
-  R0 <- exp(alpha_1*(1-s_t) + alpha_2*d_t + log(R0base - R0min)) + R0min
+R0_s2d2 <- function(s_t, d_t, alpha_1, alpha_2, R0base = 2, R0min = 1.2){ # sunrise + daytime
+  R0 <- exp(alpha_1*(1-s_t)^2 + alpha_2*d_t^2 + log(R0base - R0min)) + R0min
   return(R0)
 }
-param_bounds[["sd"]] <- list(low = c(0, -100, -100), high = c(1, 0, 0))
+param_bounds[["s2d2"]] <- list(low = c(0, -100, -100), high = c(1, 0, 0))
 
-R0_hsd <- function(h_t, s_t, d_t, alpha_1, alpha_2, alpha_3, R0base = 2, R0min = 1.2){ # humidity + sunrise + daytime
-  R0 <- exp(alpha_1*h_t + alpha_2*(1-s_t) + alpha_3*d_t + log(R0base - R0min)) + R0min
+R0_hs2d2 <- function(h_t, s_t, d_t, alpha_1, alpha_2, alpha_3, R0base = 2, R0min = 1.2){ # humidity + sunrise + daytime
+  R0 <- exp(alpha_1*h_t + alpha_2*(1-s_t)^2 + alpha_3*d_t^2 + log(R0base - R0min)) + R0min
   return(R0)
 }
-param_bounds[["hsd"]] <- list(low = c(0, -300, -100, -100), high = c(1, 0, 0, 0))
+param_bounds[["hs2d2"]] <- list(low = c(0, -300, -100, -100), high = c(1, 0, 0, 0))
 
 
 ######## Plot R0 models #######
@@ -67,11 +70,11 @@ if(FALSE){
               aes(x = hum, y=R0), color = "#009E73") + clean
   
   ggplot() + 
-    geom_line(data = data.frame("day"= day_range, "R0"= R0_day(sun_range, -1)), 
+    geom_line(data = data.frame("day"= day_range, "R0"= R0_day2(day_range, -0.632408)), 
               aes(x = day, y=R0), color = "#E69F00") +
-    geom_line(data = data.frame("day"= day_range, "R0"= R0_day(sun_range, -10)), 
+    geom_line(data = data.frame("day"= day_range, "R0"= R0_day2(day_range, -3.829641)), 
               aes(x = day, y=R0), color = "#0072B2") +
-    geom_line(data = data.frame("day"= day_range, "R0"= R0_day(sun_range, -100)), 
+    geom_line(data = data.frame("day"= day_range, "R0"= R0_day2(day_range, -10)), 
               aes(x = day, y=R0), color = "#009E73") + clean
   
   #grid.arrange(p1, p2, ncol = 1)

@@ -19,6 +19,7 @@ R0MOD=$2
 LAMBDA=$3
 
 echo "_START_$(date)"
+echo "Model: ${R0MOD}; Lambda: ${LAMBDA}"
 
 Rscript fit_all.R $STATES $R0MOD $LAMBDA 30 # manually code the number of threads
 
