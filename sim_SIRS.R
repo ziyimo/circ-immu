@@ -5,7 +5,7 @@ source("SIRS_model.R")
 
 args <- commandArgs(trailingOnly=TRUE)
 state_ls <- "states_QC200.tsv"      # text file with a list of states to fit to
-R0_mod <- "hs2d2"        # R0 model
+R0_mod <- "hsGd2"        # R0 model
 R0_params <- as.numeric(strsplit(args[1], ":", fixed=TRUE)[[1]]) # do not include `c`
 l_pnl <- args[2]         # lambda (for bookkeeping only)
 

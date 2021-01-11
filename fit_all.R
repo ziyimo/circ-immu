@@ -48,13 +48,13 @@ for (state_i in seq(nrow(states))){
   cat(">>> Loading state data:", state_code, "<<<\n")
   census_pop <- state_pop$pop[state_pop$code==state_code]
   
-  if (R0_mod %in% c("s2d2", "hs2d2")){
+  if (R0_mod %in% c("sd", "hsd")){
     sunob <- all_state_sun[[state_code]]/720 # 365 days, scaled to maximum 720 = 12 hours
   }
-  if (R0_mod %in% c("day2", "hd2", "s2d2", "hs2d2")){
+  if (R0_mod %in% c("day", "hd", "sd", "hsd")){
     dayob <- all_state_day[[state_code]]/1440
   }
-  if (R0_mod %in% c("hum", "hd2", "hs2d2")){
+  if (R0_mod %in% c("hum", "hd", "hsd")){
     climob <- all_state_hum[[state_code]] # multiple years
     climob <- matrix(climob, nrow = length(climob)/365, ncol = 365, byrow = TRUE)
     climob <- colMeans(climob) # 365 days
@@ -64,13 +64,13 @@ for (state_i in seq(nrow(states))){
     varob <- list(seq(365))
   } else if (R0_mod == "hum"){
     varob <- list(climob)
-  } else if (R0_mod == "day2"){
+  } else if (R0_mod == "day"){
     varob <- list(dayob)
-  } else if (R0_mod == "hd2"){
+  } else if (R0_mod == "hd"){
     varob <- list(climob, dayob)
-  } else if (R0_mod == "s2d2"){
+  } else if (R0_mod == "sd"){
     varob <- list(sunob, dayob)
-  } else if (R0_mod == "hs2d2"){
+  } else if (R0_mod == "hsd"){
     varob <- list(climob, sunob, dayob)
   }
   
@@ -129,7 +129,7 @@ cat(">> Fitting with R0 model:", R0_mod, "; lambda =", l_pnl, "\nLower:", p_lowe
 cat(detectCores(), "cores seen; limit to", nthr, "cores\n")
 clstr <- makeCluster(nthr, type = "FORK") # limits the number of cores to use
 evo_optim <- DEoptim(all_state_Lp, lower=p_lower, upper=p_upper,
-                     control=DEoptim.control(trace = 5, reltol = 1e-6, itermax = 1000, steptol = 200,
+                     control=DEoptim.control(trace = 5, reltol = 1e-6, itermax = 2000, steptol = 200,
                                              cluster=clstr, packages=c("deSolve"),
                                              parVar=c(var_cache, "state_data", "Lp_wrapper", "get_state_prms", "R0_mod", "l_pnl")))
 stopCluster(clstr)
