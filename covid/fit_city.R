@@ -72,7 +72,7 @@ city_df$Date <- city_df$Date - ifelse(city_df$Date >= 60, 1, 0)
 # Use 1st July as start of modelling
 first_case_t <- 183
 # Last day of data
-last_day <- tail(city_df$Date,1)
+last_day <- max(city_df$Date)
 # This assumes first infection is always after 15. Jan to work
 city_df <- subset(city_df , Date >= first_case_t)
 
@@ -84,6 +84,7 @@ day <- read.csv("data/cities_daylight.csv",sep = ",", stringsAsFactors = FALSE,h
 
 # Process sun data
 names(sun) <- c("Date","City","Sunrise")
+sun <- sun[with(sun, order(City, Date)),]
 sun$Date <- as.Date(sun$Date, "%Y-%m-%d")
 sun$Date <- as.numeric(strftime(sun$Date , format = "%j"))
 city_sun <- subset(sun, City == cityname)
@@ -93,6 +94,7 @@ sunob <- subset(city_sun, Date >= first_case_t & Date <= last_day)
 sunob  <- sunob$Sunrise
 # Process hum data
 names(hum) <- c("Date","City","Humidity")
+hum <- hum[with(hum, order(City, Date)),]
 hum$Date <- as.Date(hum$Date, "%Y-%m-%d")
 hum$Date <- as.numeric(strftime(hum$Date , format = "%j"))
 city_hum <- subset(hum, City == cityname)
@@ -100,6 +102,7 @@ climob <- subset(city_hum, Date >= first_case_t & Date <= last_day)
 climob  <- climob$Humidity
 # Process day data
 names(day) <- c("Date","City","Day")
+day <- day[with(day, order(City, Date)),]
 day$Date <- as.Date(day$Date, "%Y-%m-%d")
 day$Date <- as.numeric(strftime(day$Date , format = "%j"))
 city_day <- subset(day, City == cityname)
