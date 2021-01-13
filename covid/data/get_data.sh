@@ -1,0 +1,4 @@
+wget "https://github.com/CSSEGISandData/COVID-19_Unified-Dataset/raw/master/COVID-19.rds"
+wget -O birmingham_region_deaths.csv "https://api.coronavirus.data.gov.uk/v2/data?areaType=utla&areaCode=E08000025&metric=cumDeaths28DaysByDeathDate&metric=newAdmissions&metric=newCasesBySpecimenDate&metric=newDeaths28DaysByDeathDate&format=csv"
+wget -O london_region_deaths.csv "https://api.coronavirus.data.gov.uk/v2/data?areaType=region&areaCode=E12000007&metric=cumDeaths28DaysByDeathDate&metric=newAdmissions&metric=newCasesBySpecimenDate&metric=newDeaths28DaysByDeathDate&format=csv" 
+wget -O manchester_region_deaths.csv "https://api.coronavirus.data.gov.uk/v2/data?areaType=utla&areaCode=E08000003&metric=cumDeaths28DaysByDeathDate&metric=newAdmissions&metric=newCasesBySpecimenDate&metric=newDeaths28DaysByDeathDate&format=csv"
