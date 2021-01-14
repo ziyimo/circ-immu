@@ -159,7 +159,7 @@ binom_seird <- function(prms, R0_model, var_obs, obs_deaths, pop_size){
   predictions$obs_I <- (predictions$obs_I/alpha)/rho
   lambda = 1
   # Penalize capped infection counts
-  neg_log_L <- -sum(dbinom(as.integer(obs_deaths), size = as.integer(rho*predictions$adj_I), prob = alpha_vec)) + lambda*sum((predictions$adj_I-predictions$I)/predictions$adj_I)
+  neg_log_L <- -sum(dbinom(as.integer(obs_deaths), size = as.integer(rho*predictions$adj_I), prob = alpha_vec, log = TRUE)) + lambda*sum(predictions$adj_I-predictions$I)
   return(neg_log_L)
 }
 
@@ -189,16 +189,15 @@ binom_seird_p <- function(prms, R0_model, var_obs, obs_deaths, pop_size){
   #predictions <- tail(predictions, -9)
   
   # Average time from infection to death is 10 days
-  rho <- 10
   alpha <- 0.01
   alpha_vec <- rep(alpha,length(obs_deaths))
   predictions$obs_I <- obs_deaths
   # cap minimum predicted infection at value of obs_deaths*100*rho
-  predictions$adj_I <- ifelse(predictions$obs_I > predictions$I,predictions$obs_I*100*rho, predictions$I)
-  predictions$obs_I <- predictions$obs_I*100*rho
+  predictions$adj_I <- ifelse(predictions$obs_I > predictions$I,predictions$obs_I+1, predictions$I)
+  predictions$obs_I <- (predictions$obs_I/alpha)/rho
   lambda = 1
   # Penalize capped infection counts
-  neg_log_L <- -sum(dbinom(as.integer(obs_deaths), size = as.integer(0.1*predictions$adj_I), prob = alpha_vec)) + lambda*sum((predictions$adj_I-predictions$I)/predictions$adj_I)
+  neg_log_L <- -sum(dbinom(as.integer(obs_deaths), size = as.integer(rho*predictions$adj_I), prob = alpha_vec,log=TRUE)) + lambda*sum(predictions$adj_I-predictions$I)
   # Plot Fitting results and R0 estimates
   
   xm <- melt(predictions , id.vars=c("time"))
