@@ -8,6 +8,8 @@ inf_low <- 1
 inf_high <- 400000
 rec_low <- 1
 rec_high <- 4000000
+alpha_low <- 0.001
+alpha_high <- 0.01
 
 param_bounds <- list() # boundaries of parameters, first element is "c"
 
@@ -16,7 +18,7 @@ R0_cos <- function(t, phi, R0base = 2.5, R0min = 0.8){ # a sinusoidal baseline m
   R0 <- (R0base - R0min)/2*cos(2*pi/364*(t - phi)) + (R0base + R0min)/2
   return(R0)
 }
-param_bounds[["cos"]] <- list(low = c(inf_low, rec_low, 1), high = c(inf_high, rec_high, 364))
+param_bounds[["cos"]] <- list(low = c(inf_low, rec_low,alpha_low, 1), high = c(inf_high, rec_high,alpha_high, 364))
 
 # single var R0 models
 R0_bell <- function(q_t, alpha, q_0, R0base = 2.5, R0min = 0.8){
@@ -24,15 +26,15 @@ R0_bell <- function(q_t, alpha, q_0, R0base = 2.5, R0min = 0.8){
   R0 <- exp(alpha*(q_t-q_0)^2 + log(R0base - R0min)) + R0min # reparameterized
   return(R0)
 }
-param_bounds[["bell"]] <- list(low = c(inf_low, rec_low, -1000, 0), high = c(inf_high, rec_high, 1, 0, 1))
+param_bounds[["bell"]] <- list(low = c(inf_low, rec_low, alpha_low, -1000, 0), high = c(inf_high, rec_high, alpha_high, 1, 0, 1))
 
 R0_hum <- R0_bell
-param_bounds[["hum"]] <- list(low = c(inf_low, rec_low, -1e5, 0), high = c(inf_high, rec_high, 0, 0.021))
+param_bounds[["hum"]] <- list(low = c(inf_low, rec_low, alpha_low, -1e5, 0), high = c(inf_high, rec_high,alpha_high, 0, 0.021))
 # > max(all_state_hum)
 # [1] 0.02134766
 
 R0_day <- R0_bell
-param_bounds[["day"]] <- list(low = c(inf_low, rec_low, -100, 0), high = c(inf_high, rec_high, 0, 1))
+param_bounds[["day"]] <- list(low = c(inf_low, rec_low,alpha_low, -100, 0), high = c(inf_high, rec_high, alpha_high, 0, 1))
 
 # composite R0 models
 
@@ -42,16 +44,16 @@ R0_linGG <- function(q_t, r_t, alpha_1, q_0, alpha_2, r_0, R0base = 2.5, R0min =
 }
 
 R0_hd <- R0_linGG
-param_bounds[["hd"]] <- list(low = c(inf_low, rec_low, -1e5, 0, -100, 0), high = c(inf_high, rec_high, 0, 0.021, 0, 1))
+param_bounds[["hd"]] <- list(low = c(inf_low, rec_low,alpha_low, -1e5, 0, -100, 0), high = c(inf_high, rec_high,alpha_high, 0, 0.021, 0, 1))
 
 R0_sd <- R0_linGG
-param_bounds[["sd"]] <- list(low = c(inf_low, rec_low, -100, 0, -100, 0), high = c(inf_high, rec_high, 0, 1, 0, 1))
+param_bounds[["sd"]] <- list(low = c(inf_low, rec_low,alpha_low, -100, 0, -100, 0), high = c(inf_high, rec_high,alpha_high, 0, 1, 0, 1))
 
 R0_hsd <- function(h_t, s_t, d_t, alpha_1, h_0, alpha_2, s_0, alpha_3, d_0, R0base = 2.5, R0min = 0.8){
   R0 <- exp(alpha_1*(h_t-h_0)^2 + alpha_2*(s_t-s_0)^2 + alpha_3*(d_t-d_0)^2 + log(R0base - R0min)) + R0min
   return(R0)
 }
-param_bounds[["hsd"]] <- list(low = c(inf_low, rec_low, -1e5, 0, -100, 0, -100, 0), high = c(inf_high, rec_high, 0, 0.021, 0, 1, 0, 1))
+param_bounds[["hsd"]] <- list(low = c(inf_low, rec_low,alpha_low, -1e5, 0, -100, 0, -100, 0), high = c(inf_high, rec_high,alpha_high, 0, 0.021, 0, 1, 0, 1))
 
 
 ###########################
@@ -107,7 +109,7 @@ SEIRDvar_pred <- function(R0_func, R0_params, var_ls, census_pop){
   #inf_recov <- 625614
   
   # extract the params used to calculate R0 by removing first two
-  R0_params <- R0_params[-c(1,2)]
+  R0_params <- R0_params[-c(1,2,3)]
   c_total_days <- length(var_ls[[1]]) # specify when to seed the single infection
   c_times <- seq(1, c_total_days, by = 1)[1:(c_total_days)]
   xstart <- c(S = census_pop-(inf_init+inf_recov),E = 0, I = inf_init, R = inf_recov) # use actual state population
@@ -134,7 +136,8 @@ binom_seird <- function(prms, R0_model, var_obs, obs_deaths, pop_size){
   cityname <- sub(" ", "",cityname)
   obs_deaths <- obs_deaths$Cases_New
   lambda <- 1
-  alpha <- 0.01
+  #alpha <- 0.01
+  alpha <- prms[3]
   alpha_vec <- rep(alpha,length(obs_deaths))
   rho <- 0.1
   # predicted infections
@@ -149,16 +152,14 @@ binom_seird <- function(prms, R0_model, var_obs, obs_deaths, pop_size){
   #predictions <- tail(predictions, -9)
   
   # Average time from infection to death is 10 days
-  rho <- 10
-  alpha <- 0.01
   alpha_vec <- rep(alpha,length(obs_deaths))
   predictions$obs_I <- obs_deaths
-  # cap minimum predicted infection at value of obs_deaths*100*rho
-  predictions$adj_I <- ifelse(predictions$obs_I > predictions$I,predictions$obs_I*100*rho, predictions$I)
-  predictions$obs_I <- predictions$obs_I*100*rho
+  # cap minimum predicted infection at deaths+1
+  predictions$adj_I <- ifelse(predictions$obs_I > predictions$I,predictions$obs_I+1, predictions$I)
+  predictions$obs_I <- (predictions$obs_I/alpha)/rho
   lambda = 1
   # Penalize capped infection counts
-  neg_log_L <- -sum(dbinom(as.integer(obs_deaths), size = as.integer(0.1*predictions$adj_I), prob = alpha_vec)) + lambda*sum((predictions$adj_I-predictions$I)/predictions$adj_I)
+  neg_log_L <- -sum(dbinom(as.integer(obs_deaths), size = as.integer(rho*predictions$adj_I), prob = alpha_vec)) + lambda*sum((predictions$adj_I-predictions$I)/predictions$adj_I)
   return(neg_log_L)
 }
 
@@ -172,7 +173,8 @@ binom_seird_p <- function(prms, R0_model, var_obs, obs_deaths, pop_size){
   cityname <- sub(" ", "",cityname)
   obs_deaths <- obs_deaths$Cases_New
   lambda <- 1
-  alpha <- 0.01
+  #alpha <- 0.01
+  alpha <- prms[3]
   alpha_vec <- rep(alpha,length(obs_deaths))
   rho <- 0.1
   # predicted infections
@@ -212,7 +214,7 @@ binom_seird_p <- function(prms, R0_model, var_obs, obs_deaths, pop_size){
           axis.title=element_text(size=12)) +
     ggtitle(paste("-loglik=",neg_log_L, sep = " "))
   
-  R0_params <- prms[-c(1,2)]
+  R0_params <- prms[-c(1,2,3)]
   annual_R0 <- do.call(R0_model, c(var_obs, as.list(R0_params)))
   annual_R0 <- as.data.frame(annual_R0)
   p2 <- ggplot(annual_R0, aes(x=seq_along(annual_R0), y=annual_R0)) + geom_point()+

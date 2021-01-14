@@ -43,9 +43,10 @@ if (argsLen == 2){
 }
 
 ### Logging
-time_stamp <- format(Sys.time(), "%m%d%H")
+time_stamp <- format(Sys.time(), "%m%d%H%m")
 
-handle <- paste0(cityname, R0_mod, time_stamp)
+handle <- paste0(cityname, "_", R0_mod,"_", time_stamp)
+handle <- sub(" ", "", handle)
 sink(paste0("fit_results/", handle, ".log"))
 
 ### Load population size data
@@ -79,7 +80,7 @@ city_df <- subset(city_df , Date >= first_case_t)
 ### Load environmental data
 
 sun <- read.csv("data/cities_sunrise.csv",sep = ",", stringsAsFactors = FALSE,header = FALSE, na.strings="",check.names = FALSE)
-hum <- read.csv("data/cities_daylight.csv",sep = ",", stringsAsFactors = FALSE,header = FALSE, na.strings="",check.names = FALSE)
+hum <- read.csv("data/cities_humidity.csv",sep = ",", stringsAsFactors = FALSE,header = FALSE, na.strings="",check.names = FALSE)
 day <- read.csv("data/cities_daylight.csv",sep = ",", stringsAsFactors = FALSE,header = FALSE, na.strings="",check.names = FALSE)
 
 # Process sun data
