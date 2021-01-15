@@ -5,6 +5,7 @@ library("parallel")
 library("DEoptim")
 library("binom")
 
+source("R0_mods.R")
 source("SIRS_model.R")
 var_cache <- ls()
 

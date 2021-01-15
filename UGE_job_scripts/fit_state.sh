@@ -1,27 +1,21 @@
 #!/bin/bash
-#$ -N fit_SIRS
+#$ -N fit_state
 #$ -S /bin/bash
 #$ -cwd
 #$ -o UGE$JOB_ID.o
 #$ -j y
-#$ -l m_mem_free=2G
-#$ -pe threads 32
-#$ -binding linear_per_task:1
+#$ -l m_mem_free=8G
 
 # module load EBModules
 # module load R/4.0.3-foss-2020a
-
 export R_LIBS_USER=/grid/siepel/home_norepl/mo/R/x86_64-pc-linux-gnu-library/4.0
 
-STATES=$1
+STATE=$1
 R0MOD=$2
-#SHARE_INTRCPT=$3
-LAMBDA=$3
 
 echo "_START_$(date)"
-echo "Model: ${R0MOD}; Lambda: ${LAMBDA}"
 
-Rscript fit_all.R $STATES $R0MOD $LAMBDA 30 # manually code the number of threads
+./fit_state.R $STATE $R0MOD
 
 echo "_EXITSTAT_$?"
 echo "_END_$(date)"
