@@ -79,12 +79,13 @@ run_instance <- function(prms, R0_model, var_obs){
   #return(neg_log_L)
 }
 
+result <- readRDS("fit_results/states_trial8.tsv_sd_0114_pso.rds")
+opt_prms <- result$par
+fit_prms <- c(opt_prms[5], opt_prms[-1:-8])
 
-fit_prms <- c(0.002760, 0.029307, 0.966680, 5.142541, -420.700251, 0.554701, -12.252428, 0.044987)
+fit_prms <- c(0.006788, 0.026612, 0.970366, 3.029638, -268.792228, 0.556643, -14.620948, 0.120207)
 run_instance(fit_prms, "R0_sd", list(sunob, dayob))
-fit_prms <- c(0.002945, 0.013561, 1.106751, 1.171467, -70.457959, 0.369805)
+fit_prms <- c(0.004630, 0.012029, 1.075839, 1.23119, -62.059135, 0.379025)
 run_instance(fit_prms, "R0_day", list(dayob))
-fit_prms <- c(0.012906, 0.010619, 1.109247, 0.943467, 319.942628)
-run_instance(fit_prms, "R0_cos", list(73:365))
-
-result <- readRDS("fit_results/states_trial8.tsv_day_0114_pso.rds")
+# fit_prms <- c(0.012906, 0.010619, 1.109247, 0.943467, 319.942628)
+# run_instance(fit_prms, "R0_cos", list(73:365))

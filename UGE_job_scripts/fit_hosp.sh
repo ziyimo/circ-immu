@@ -4,8 +4,8 @@
 #$ -cwd
 #$ -o UGE$JOB_ID.o
 #$ -j y
-#$ -l m_mem_free=2G
-#$ -pe threads 10
+#$ -l m_mem_free=1G
+#$ -pe threads 26
 #$ -binding linear_per_task:1
 
 # module load EBModules
@@ -19,7 +19,7 @@ R0MOD=$2
 echo "_START_$(date)"
 echo "Model: ${R0MOD}"
 
-Rscript fit_hosp.R $STATES $R0MOD 8 # manually code the number of threads
+Rscript fit_hosp.R $STATES $R0MOD 25 pso # manually code the number of threads
 
 echo "_EXITSTAT_$?"
 echo "_END_$(date)"
