@@ -24,6 +24,7 @@ R0_day <- function(d_t, alpha, d_0, R0base = 2, R0min = 1.2){
   return(R0)
 }
 #param_bounds[["day"]] <- list(low = c(0, -100, 0), high = c(1, 0, 1))
+R0_sun <- R0_day
 
 # composite R0 models
 
@@ -32,6 +33,7 @@ R0_hd <- function(h_t, d_t, alpha_1, alpha_2, d_0, R0base = 2, R0min = 1.2){ # h
   return(R0)
 }
 #param_bounds[["hd"]] <- list(low = c(0, -300, -100, 0), high = c(1, 0, 0, 1))
+R0_hs <- R0_hd
 
 R0_sd <- function(s_t, d_t, alpha_1, s_0, alpha_2, d_0, R0base = 2, R0min = 1.2){
   R0 <- exp(alpha_1*(s_t-s_0)^2 + alpha_2*(d_t-d_0)^2 + log(R0base - R0min)) + R0min
@@ -63,7 +65,7 @@ if(FALSE){
   ggplot() + 
     # geom_line(data = data.frame("hum"= cli_range, "R0"= R0_hum(cli_range, -5e3, 0)), 
     #           aes(x = hum, y=R0), color = "#E69F00") +
-    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_hum(cli_range, -76)), 
+    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_hum(cli_range, -1000)), 
               aes(x = hum, y=R0), color = "#0072B2") +
     geom_line(data = data.frame("hum"= cli_range, "R0"= R0_day(cli_range, -6650, 0)), 
               aes(x = hum, y=R0), color = "#009E73") + clean
@@ -73,7 +75,7 @@ if(FALSE){
               aes(x = day, y=R0), color = "#E69F00") +
     geom_line(data = data.frame("day"= day_range, "R0"= R0_day(day_range, -100, 0.4)), 
               aes(x = day, y=R0), color = "#0072B2") +
-    geom_line(data = data.frame("day"= day_range, "R0"= R0_day(day_range, -1000, 0.4)), 
+    geom_line(data = data.frame("day"= day_range, "R0"= R0_day(day_range, -300, 0.4)), 
               aes(x = day, y=R0), color = "#009E73") + clean
   
   #grid.arrange(p1, p2, ncol = 1)

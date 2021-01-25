@@ -4,10 +4,13 @@ library(deSolve)
 
 param_bounds[["cos"]] <- list(low = c(1), high = c(364))
 param_bounds[["hum"]] <- list(low = c(-300), high = c(0))
-param_bounds[["day"]] <- list(low = c(-1000, 0), high = c(0, 1))
-param_bounds[["hd"]] <- list(low = c(-300, -1000, 0), high = c(0, 0, 1))
-param_bounds[["sd"]] <- list(low = c(-1000, 0, -1000, 0), high = c(0, 1, 0, 1))
-param_bounds[["hsd"]] <- list(low = c(-300, -1000, 0, -1000, 0), high = c(0, 0, 1, 0, 1))
+param_bounds[["sun"]] <- list(low = c(-500, 0), high = c(0, 1))
+param_bounds[["hs"]] <- list(low = c(-300, -500, 0), high = c(0, 0, 1))
+
+param_bounds[["day"]] <- list(low = c(-500, 0), high = c(0, 1))
+param_bounds[["hd"]] <- list(low = c(-300, -500, 0), high = c(0, 0, 1))
+param_bounds[["sd"]] <- list(low = c(-500, 0, -500, 0), high = c(0, 1, 0, 1))
+param_bounds[["hsd"]] <- list(low = c(-300, -500, 0, -500, 0), high = c(0, 0, 1, 0, 1))
 
 SEIH_R0 <- function(time, state, theta){
   ## Parameters:
@@ -69,5 +72,18 @@ pois_L <- function(prms, R0_model, var_obs, hosp_df, pop_size){
   mod_pred <- run_SEIH(pop_size, seed_prop, hrate, R0_model, c(R0_prms, R0_min+R0_range, R0_min), var_obs)
   result <- merge(mod_pred, hosp_df, by.x = "time", by.y = "date")
   neg_log_L <- -sum(dpois(result$hospitalizedCurrently, result$H, log = TRUE))
+  return(neg_log_L)
+}
+
+norm_L <- function(prms, R0_model, var_obs, hosp_df, pop_size){
+  seed_prop <- prms[1]
+  hrate <- prms[2]
+  R0_min <- prms[3]
+  R0_range <- prms[4]
+  R0_prms <- prms[-1:-4]
+  
+  mod_pred <- run_SEIH(pop_size, seed_prop, hrate, R0_model, c(R0_prms, R0_min+R0_range, R0_min), var_obs)
+  result <- merge(mod_pred, hosp_df, by.x = "time", by.y = "date")
+  neg_log_L <- -sum(dnorm(result$hospitalizedCurrently, mean = result$H, log = TRUE))
   return(neg_log_L)
 }
