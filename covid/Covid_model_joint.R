@@ -94,7 +94,7 @@ SEIRD_R0 <- function(time, state, theta){
 
 ###########################
 
-SEIRDvar_pred <- function(R0_func, R0_params, var_ls, census_pop){
+SEIRDvar_pred <- function(R0_func, R0_params, var_ls, census_pop,obs_deaths){
   # R0_func: string of function name
   # R0_params: vector of parameters
   # var_ls: list of vector(s) of variables (sunrise, humidity)
@@ -107,10 +107,14 @@ SEIRDvar_pred <- function(R0_func, R0_params, var_ls, census_pop){
   # extract the params used to calculate R0 by removing first five
   R0_params <- R0_params[-c(1,2,3,4,5)]
   
-  c_total_days <- length(var_ls[[1]]) # specify when to seed the single infection
+  c_total_days <- length(obs_deaths) # specify when to seed the single infection
   c_times <- seq(1, c_total_days, by = 1)[1:(c_total_days)]
   xstart <- c(S = census_pop-(inf_init+inf_recov),E = 0, I = inf_init, G = 0, R = inf_recov) # use actual state population
   annual_R0 <- do.call(R0_func, c(var_ls, as.list(c(R0_params, R0_min+R0_range, R0_min))))
+  if(R0_func == "R0_cos"){
+	  annual_R0 <- annual_R0[1:c_total_days]
+  }
+
   # some hard-coded parameters
   paras = list(alpha = param_alpha,  # 1% death rate
                #L = 280, # duration of immunity - not used for COVID
@@ -137,7 +141,7 @@ binom_seird <- function(prms, R0_model, var_obs, obs_deaths, pop_size){
   alpha_vec <- rep(alpha,length(obs_deaths))
   rho <- 0.1
   # predicted infections
-  predictions <- SEIRDvar_pred(R0_model, prms, var_obs, pop_size)
+  predictions <- SEIRDvar_pred(R0_model, prms, var_obs, pop_size,obs_deaths)
   alpha_vec <- rep(alpha,length(obs_deaths))
   predictions$obs_D <- obs_deaths
   # cap minimum predicted infection at deaths+1
@@ -163,7 +167,7 @@ binom_seird_p <- function(prms, R0_model, var_obs, obs_deaths, pop_size){
   alpha_vec <- rep(alpha,length(obs_deaths))
   rho <- 0.1
   # predicted infections
-  predictions <- SEIRDvar_pred(R0_model, prms, var_obs, pop_size)
+  predictions <- SEIRDvar_pred(R0_model, prms, var_obs, pop_size,obs_deaths)
   
   # Average time from infection to death is 10 days
   alpha_vec <- rep(alpha,length(obs_deaths))
@@ -192,6 +196,9 @@ binom_seird_p <- function(prms, R0_model, var_obs, obs_deaths, pop_size){
   R0_range <- prms[5]
   R0_params <- prms[-c(1,2,3,4,5)]
   annual_R0 <- do.call(R0_model, c(var_obs, as.list(c(R0_params, R0_min+R0_range, R0_min))))
+  if(R0_model == "R0_cos"){
+	  annual_R0 <- annual_R0[1:length(obs_deaths)]
+  }
   # Add R0 to predictions for log
   annual_R0 <- as.data.frame(annual_R0)
   predictions$R0 <- annual_R0$annual_R0

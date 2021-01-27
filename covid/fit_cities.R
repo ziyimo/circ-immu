@@ -1,7 +1,8 @@
 #!/usr/bin/env Rscript
 
-suppressWarnings(suppressMessages(library(pso, character.only = TRUE)))
-suppressWarnings(suppressMessages(library(binom)))
+suppressWarnings(suppressMessages(library("pso", character.only = TRUE)))
+suppressWarnings(suppressMessages(library("parallel")))
+suppressWarnings(suppressMessages(library("binom")))
 source("Covid_model_joint.R")
 
 ### Parse user args
@@ -103,7 +104,12 @@ for (city_i in seq(no_cities)){
   }
   
   if (R0_mod == "cos"){
+    # baseline R0 outputs 364 days
+    # other models output t days based on death data
+    # need to add merge step to reconcile in SEIRDvar_pred()
     varob <- list(seq(365))
+    #varob <- list(seq(length(city_df$Date)))
+
   } else if (R0_mod == "hum"){
     varob <- list(humob)
   } else if (R0_mod == "day"){
@@ -181,7 +187,7 @@ negLL_wrapper <- function(city_elem, p_vec){
                    city_elem$epi,
                    city_elem$pop)
   # Plot small fraction of results to help monitor fitting progress
-  if(runif(1) > 0.999){ 
+  if(runif(1) > 0.9995){ 
       binom_seird_p(get_city_prms(p_vec, city_elem$idx), 
                     paste0("R0_", R0_mod),
                     city_elem$var,
@@ -211,7 +217,7 @@ for (thrhld in restart_thd){
                 control=list(trace=1, REPORT=5, maxit=10000, trace.stats=FALSE, maxit.stagnate=500,
                              max.restart=5, reltol=thrhld))
   seed <- oo$par
-  cat(states$V1); cat("; hrate; R0_min; R0_range; [R0_prms]\n")
+  cat(cities$V1); cat("; hrate; R0_min; R0_range; [R0_prms]\n")
   cat(prms_low + oo$par*(prms_high-prms_low))
   cat("\n")
 }
@@ -252,7 +258,7 @@ if (R0_mod %in% c("sun", "sd", "hsd")){
                   control=list(trace=1, REPORT=5, maxit=10000, trace.stats=FALSE, maxit.stagnate=500,
                                max.restart=5, reltol=thrhld))
     seed <- oo$par
-    cat(states$V1); cat("; hrate; R0_min; R0_range; [R0_prms]\n")
+    cat(cities$V1); cat("; hrate; R0_min; R0_range; [R0_prms]\n")
     cat(prms_low + oo$par*(prms_high-prms_low))
     cat("\n")
   }
