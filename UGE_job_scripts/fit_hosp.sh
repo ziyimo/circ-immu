@@ -18,9 +18,9 @@ R0MOD=$2
 #THD=$3
 
 echo "_START_$(date)"
-echo "Model: ${R0MOD}" #; Restart Threshold: ${THD}"
+echo "Model: ${R0MOD}"
 
-Rscript fit_hosp.R $STATES $R0MOD 25 pso # manually code the number of threads
+./fit_hosp.R $STATES $R0MOD 25 # manually code the number of threads
 
 echo "_EXITSTAT_$?"
 echo "_END_$(date)"

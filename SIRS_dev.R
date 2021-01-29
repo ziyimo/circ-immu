@@ -53,8 +53,39 @@ p1 <- qplot(seq(365), -sunob)
 p2 <- qplot(seq(365), climob)
 grid.arrange(p1, p2, ncol = 1)
 
-## Load flu data
-epi_data <- load_state_epi(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv"))
+## Load flu data (calculate estimator of infection rate)
+infections_df <- data.frame(YEAR=rep(2010:2020, each=52), WEEK=rep(seq(52), times=11))[c(-seq(39), -(560:572)),]
+pop_df <- data.frame(YEAR=rep(2010:2020, each=52), WEEK=rep(seq(52), times=11))[c(-seq(39), -(560:572)),]
+
+states <- read.delim("states_QC200.tsv", header = FALSE)
+state_pop <- read.delim("state_lv_data/state_pop.tsv")
+#c <- 0.239310
+
+for (state_code in states$V1){
+  census_pop <- state_pop$pop[state_pop$code==state_code]
+  epiob <- read.csv(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv")) # blank field automatically NA
+  epiob <- epiob[epiob$WEEK <= 52, ] # cap year to 52 weeks
+  mask <- is.na(epiob$TOTAL.SPECIMENS) | (epiob$TOTAL.SPECIMENS == 0) | (epiob$X.UNWEIGHTED.ILI == 0) # missing data: no. of test is 0 or NA, or no sympotomatic patient
+  cat(sum(mask), "weeks masked", "\n")
+  epiob <- epiob[!mask, ]
+  # calculate relative date to the beginning of the 1st year in the data
+  #rel_date <- (epiob$YEAR-y0)*364 + epiob$WEEK*7 - 3 # center on Thursday
+  
+  k <- epiob$TOTAL.A + epiob$TOTAL.B
+  TT <- epiob$TOTAL.SPECIMENS
+  pi <- epiob$X.UNWEIGHTED.ILI/100
+  
+  state_inf <- data.frame(YEAR=epiob$YEAR, WEEK=epiob$WEEK)
+  state_inf[[state_code]] <- k/TT*pi*census_pop
+  state_tot <- data.frame(YEAR=epiob$YEAR, WEEK=epiob$WEEK)
+  state_tot[[state_code]] <- census_pop
+  
+  infections_df <- merge(infections_df, state_inf, all.x = TRUE)
+  pop_df <- merge(pop_df, state_tot, all.x = TRUE)
+}
+
+write.table(infections_df, "flu_fit/p_estimator.tsv", quote = FALSE, sep="\t", row.names = FALSE)
+write.table(pop_df, "flu_fit/denom_estimator.tsv", quote = FALSE, sep="\t", row.names = FALSE)
 
 # # calculate scaling factors
 # p_df <- data.frame("p_hat"=pi*k/TT, "week"=epiob$WEEK)

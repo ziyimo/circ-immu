@@ -56,7 +56,7 @@ grid.arrange(p1, p2, p3, p4, ncol = 2)
 
 ######
 
-state_eg <- "NJ"
+state_eg <- "GA"
 census_pop <- state_pop$pop[state_pop$code==state_eg]
 sunob <- all_state_sun[[state_eg]]/720
 dayob <- all_state_day[[state_eg]]/1440
@@ -149,14 +149,14 @@ for (R0_mod in c("sd", "hsd")){
 
 #oo <- readRDS("fit_results/CR_day_012112_pso.rds")
 #orig_prms <- prms_low + oo$par*(prms_high-prms_low)
-orig_prms <- c(0.003071723, 0.01144501, 1.1953, 4.999987, -5.833161, -7.325343, 0.06920201, -332.1172, 0.4342964)
+orig_prms <- c(0.02990376, 0.01144501, 1.1953, 4.999987, -5.833161, -7.325343, 0.6011536, -332.1172, 0.4342964)
 state_hos <- state_data$South$epi
 varob <- state_data$South$var
 #run_instance(get_state_prms(orig_prms, state_data$Midwest$idx), paste0("R0_", R0_mod), varob)
 run_instance(orig_prms, paste0("R0_", R0_mod), varob)
 
 fit_prms <- c(opt_prms[5], opt_prms[-1:-8])
-fit_prms <- c(0.02132455, 0.006309755, 1.187916, 1.440172, -0.04311847, -53.68485, 0.5907722, -147.0461, 0.4114241)
+fit_prms <- c(0.002529415, 0.009084798, 1.187872, 1.440119, -0.03385119, -54.60318, 0.5196503, -147.097, 0.4113934)
 run_instance(fit_prms, "R0_hsd", list(climob, sunob, dayob))
 fit_prms <- c(0.004630, 0.012029, 1.075839, 1.23119, -62.059135, 0.379025)
 run_instance(fit_prms, "R0_day", list(dayob))

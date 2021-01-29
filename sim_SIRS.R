@@ -1,15 +1,19 @@
 #!/usr/bin/env Rscript
 
 library(deSolve)
+source("R0_mods.R")
 source("SIRS_model.R")
 
 args <- commandArgs(trailingOnly=TRUE)
 state_ls <- "states_QC200.tsv"      # text file with a list of states to fit to
-R0_mod <- "hsGd2"        # R0 model
-R0_params <- as.numeric(strsplit(args[1], ":", fixed=TRUE)[[1]]) # do not include `c`
-l_pnl <- args[2]         # lambda (for bookkeeping only)
+R0_mod <- "hsd"        # R0 model
+#R0_params <- as.numeric(strsplit(args[1], ":", fixed=TRUE)[[1]]) # do not include `c`
+l_pnl <- args[1]         # lambda (for bookkeeping only)
 
 handle <- paste0(state_ls, l_pnl, R0_mod, "_sims")
+
+fitted <- readRDS(Sys.glob(paste0("flu_fit/", paste(state_ls, l_pnl, R0_mod, "*.rds" ,sep="_"))))
+R0_params <- unname(fitted$optim$bestmem[-1]) # do not include `c`
 
 states <- read.delim(state_ls, header = FALSE)$V1
 
@@ -89,7 +93,7 @@ for (state_i in seq(length(states))){
   annual_cnt[state_code, "permdst"] <- permDST_sim$tot_inf
 }
 
-write.table(infection_dst, file = paste0("fit_results/", handle, "_dst.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
-write.table(infection_nodst, file = paste0("fit_results/", handle, "_sansdst.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
-write.table(infection_permdst, file = paste0("fit_results/", handle, "_permdst.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
-write.table(annual_cnt, file = paste0("fit_results/", handle, "_cnt.tsv"), quote=FALSE, sep="\t", row.names=TRUE)
+write.table(infection_dst, file = paste0("flu_fit/", handle, "_dst.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
+write.table(infection_nodst, file = paste0("flu_fit/", handle, "_sansdst.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
+write.table(infection_permdst, file = paste0("flu_fit/", handle, "_permdst.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
+write.table(annual_cnt, file = paste0("flu_fit/", handle, "_cnt.tsv"), quote=FALSE, sep="\t", row.names=TRUE)
