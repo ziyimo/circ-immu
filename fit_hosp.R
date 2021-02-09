@@ -12,7 +12,8 @@ args <- commandArgs(trailingOnly=TRUE)
 
 state_ls <- args[1]      # text file with a list of states to fit to
 R0_mod <- args[2]        # R0 model, options: [see code]
-nthr <- as.numeric(args[3]) # limit no. of threads
+seed_prm <- as.numeric(strsplit(args[3], ":", fixed=TRUE)[[1]]) # seed, put "0:0" for default
+nthr <- as.numeric(args[4]) # limit no. of threads
 optimizer <- "pso"
 #restart_thd <- as.numeric(args[5]) # restart threshold for pso optimizer
 
@@ -36,7 +37,7 @@ state_data <- list()
 
 for (state_i in seq(no_states)){
   state_code <- states$V1[state_i]
-  cat(">>> Loading state data:", state_code, "<<<\n")
+  #cat(">>> Loading state data:", state_code, "<<<\n")
   census_pop <- state_pop$pop[state_pop$code==state_code]
   
   if (R0_mod %in% c("sun", "hs", "sd", "hsd")){
@@ -72,7 +73,7 @@ for (state_i in seq(no_states)){
   state_df <- subset(covid_df, state == state_code)
   state_df <- state_df[order(state_df$date),]
   state_df <- state_df[!is.na(state_df$hospitalizedCurrently), ]
-  state_df <- state_df[state_df$date <= 365, ]
+  state_df <- state_df[state_df$date <= 396, ] # take data till end of Jan 2021
   state_hos <- subset(state_df, select = c("date", "hospitalizedCurrently"))
   
   state_data[[state_code]] <- list(idx=state_i, pop=census_pop, var=varob, epi=state_hos)
@@ -95,8 +96,8 @@ all_state_negLL <- function(norm_prms){ # everything else read as global variabl
 
 ## ROUND 1: state-specific I_init only
 # I_init; h_rate; Rmin; Rrange; [R0_prms]
-prms_low <- c(rep(1e-5, no_states), 0.003, 0.6, 0.2, param_bounds[[R0_mod]]$low)
-prms_high <- c(rep(0.1, no_states), 0.2, 1.6, 2.5, param_bounds[[R0_mod]]$high)
+prms_low <- c(rep(1e-5, no_states), 0.003, 0.8, 0.2, param_bounds[[R0_mod]]$low)
+prms_high <- c(rep(0.1, no_states), 0.1, 1.5, 2.5, param_bounds[[R0_mod]]$high)
 
 get_state_prms <- function(prms_vec, state_idx){
   return(c(prms_vec[state_idx], prms_vec[-1:-no_states]))
@@ -113,7 +114,13 @@ clstr <- makeCluster(nthr, type = "FORK") # limits the number of cores to use
 
 cat(">> Fitting with R0 model:", R0_mod, "\nLower:", prms_low, "\nUpper:", prms_high, "\n")
 restart_thd <- c(1.1e-2, 1.1e-3, 1.1e-4)
-seed <- rep(NA,length(prms_low))
+
+if (sum(seed_prm) == 0){
+  seed <- rep(NA,length(prms_low))
+} else {
+  seed <- (seed_prm-prms_low)/(prms_high-prms_low)
+  cat(">> Seeded run:", prms_low + seed*(prms_high-prms_low), "\n")
+}
 
 for (thrhld in restart_thd){
   cat(">> Restart threshold:", thrhld, "\n")
@@ -121,6 +128,7 @@ for (thrhld in restart_thd){
                 control=list(trace=1, REPORT=5, maxit=10000, trace.stats=FALSE, maxit.stagnate=500,
                              max.restart=5, reltol=thrhld))
   seed <- oo$par
+  cat(">>", R0_mod, "RND1:", oo$value, "\n")
   cat(states$V1); cat("; hrate; R0_min; R0_range; [R0_prms]\n")
   cat(">> RND1:", prms_low + oo$par*(prms_high-prms_low), "\n")
 }
@@ -153,6 +161,7 @@ if (R0_mod %in% c("sun", "sd", "hsd")){
                   control=list(trace=1, REPORT=5, maxit=10000, trace.stats=FALSE, maxit.stagnate=500,
                                max.restart=5, reltol=thrhld))
     seed <- oo$par
+    cat(">>", R0_mod, "RND1.5:", oo$value, "\n")
     cat(states$V1); cat("; hrate; R0_min; R0_range; [R0_prms]\n")
     cat(">> RND1.5:", prms_low + oo$par*(prms_high-prms_low), "\n")
   }
@@ -191,6 +200,7 @@ for (thrhld in restart_thd){
                 control=list(trace=1, REPORT=5, maxit=10000, trace.stats=FALSE, maxit.stagnate=500,
                              max.restart=5, reltol=thrhld))
   seed <- oo$par
+  cat(">>", R0_mod, "RND2:", oo$value, "\n")
   cat(states$V1); cat("; hrate; R0_min; R0_range; [R0_prms]\n")
   cat(">> RND2:", prms_low + oo$par*(prms_high-prms_low), "\n")
 }

@@ -9,6 +9,8 @@ param_bounds[["hd"]] <- list(low = c(0, -300, -100, 0), high = c(1, 0, 0, 1))
 param_bounds[["sd"]] <- list(low = c(0, -100, 0, -100, 0), high = c(1, 0, 1, 0, 1))
 param_bounds[["hsd"]] <- list(low = c(0, -300, -100, 0, -100, 0), high = c(1, 0, 0, 1, 0, 1))
 
+param_bounds[["sun"]] <- list(low = c(0, -100, 0), high = c(1, 0, 1))
+
 # SIRS model
 SIRS_R0 <- function(time, state, theta){
   ## Parameters:

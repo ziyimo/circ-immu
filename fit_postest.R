@@ -49,7 +49,7 @@ for (state_i in seq(nrow(states))){
   cat(">>> Loading state data:", state_code, "<<<\n")
   census_pop <- state_pop$pop[state_pop$code==state_code]
   
-  if (R0_mod %in% c("sd", "hsd")){
+  if (R0_mod %in% c("sun", "sd", "hsd")){
     sunob <- all_state_sun[[state_code]]/720 # 365 days, scaled to maximum 720 = 12 hours
   }
   if (R0_mod %in% c("day", "hd", "sd", "hsd")){
@@ -73,6 +73,8 @@ for (state_i in seq(nrow(states))){
     varob <- list(sunob, dayob)
   } else if (R0_mod == "hsd"){
     varob <- list(climob, sunob, dayob)
+  } else if (R0_mod == "sun"){
+    varob <- list(sunob)
   }
   
   epi_data <- load_state_epi(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv"))

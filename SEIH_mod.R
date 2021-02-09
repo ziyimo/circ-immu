@@ -12,6 +12,16 @@ param_bounds[["hd"]] <- list(low = c(-300, -500, 0), high = c(0, 0, 1))
 param_bounds[["sd"]] <- list(low = c(-500, 0, -500, 0), high = c(0, 1, 0, 1))
 param_bounds[["hsd"]] <- list(low = c(-300, -500, 0, -500, 0), high = c(0, 0, 1, 0, 1))
 
+# > max(all_state_sun/720)
+# [1] 0.6937806
+# > min(all_state_sun/720)
+# [1] 0.415187
+
+# > min(all_state_day/1440)
+# [1] 0.3502181
+# > max(all_state_day/1440)
+# [1] 0.6661465
+
 SEIH_R0 <- function(time, state, theta){
   ## Parameters:
   R0_vec <- theta[["R0"]] # vector pre-calculated R0 values
@@ -47,7 +57,7 @@ SEIH_R0 <- function(time, state, theta){
 run_SEIH <- function(census_pop, prop_init, hpt_rate, R0_func, R0_params, var_ls){
     
   xstart <- c(S = census_pop*(1-prop_init), E = 0, I = census_pop*prop_init, H = 0, R = 0) # use actual state population
-  times <- seq(73, 365) # from national emergency declaration to end of the year
+  times <- seq(73, 396) # from national emergency declaration to end of Jan 2021 !!
   annual_R0 <- do.call(R0_func, c(var_ls, as.list(R0_params)))
   
   # some hard-coded parameters
@@ -56,7 +66,7 @@ run_SEIH <- function(census_pop, prop_init, hpt_rate, R0_func, R0_params, var_ls
                lambda = 5,
                gam = 5,
                k = 10,
-               R0 = annual_R0) # pre-calculated R0 values
+               R0 = rep(annual_R0, times=2)) # pre-calculated R0 values
   
   predictions <- as.data.frame(ode(xstart, times, SEIH_R0, paras)) # run SIRS model
   return(predictions)

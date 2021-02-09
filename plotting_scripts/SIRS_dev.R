@@ -4,16 +4,15 @@ library(ggplot2)
 library(gridExtra)
 
 #library(deSolve)
-library(binom)
+library("binom")
 
+source("R0_mods.R")
 source("SIRS_model.R")
 
-#args <- commandArgs(trailingOnly=TRUE)
-
+####### check missing data #######
 state_pop <- read.delim("state_lv_data/state_pop.tsv")
 state_pop$missing <- rep_len(NaN, nrow(state_pop))
 
-## check missing data ##
 for (state_idx in seq(nrow(state_pop))){
   ## Load flu data
   epiob <- read.csv(paste0("state_lv_data/Flu_data/flu_epi_", state_pop$code[state_idx], ".csv")) # blank field automatically NA
@@ -32,28 +31,66 @@ hist(state_pop$missing, breaks = 20)
 QC <- state_pop$missing < 200
 View(state_pop[QC,])
 write.table(state_pop$code[QC], "states_QC200.tsv", sep = "\t", row.names = FALSE, quote = FALSE, col.names = FALSE)
-####
+###################################
 
-state_code <- "WV"
-## Load population
-census_pop <- state_pop$pop[state_pop$code==state_code]
-
-## Load sunrise data
+## Load all state data
+state_pop <- read.delim("state_lv_data/state_pop.tsv")
 all_state_sun <- read.csv("state_lv_data/state_daily_sunrise_2019.csv")
-sunob <- all_state_sun[[state_code]]/720 # 365 days, scaled to maximum 720 = 12 hours
-
-## Load humidity data
+all_state_day <- read.csv("state_lv_data/state_daytime_2019.csv")
 all_state_hum <- read.csv("state_lv_data/state_humidity_2014_2018.csv")
 all_state_hum <- all_state_hum[all_state_hum$X != "2016-02-29", ] # get rid of leap year Feb 29
-climob <- all_state_hum[[state_code]] # multiple years
-climob <- matrix(climob, nrow = length(climob)/365, ncol = 365, byrow = TRUE)
-climob <- colMeans(climob) # 365 days
 
-p1 <- qplot(seq(365), -sunob)
-p2 <- qplot(seq(365), climob)
-grid.arrange(p1, p2, ncol = 1)
+######## Humidity model sanity check #######
 
-## Load flu data (calculate estimator of infection rate)
+#shaman_states <- c("AZ", "IL", "NY", "WA")
+shaman_states <- read.delim("states_QC200.tsv", header = FALSE)$V1
+
+hum_fit <- readRDS("flu_fit/states_QC200.tsv_1e1_hum_1221.rds")
+hum_alpha <- unname(hum_fit$optim$bestmem[2])
+
+dat_I <- c()
+mod_I <- c()
+
+for (state_code in shaman_states){
+  ## Load population
+  census_pop <- state_pop$pop[state_pop$code==state_code]
+  ## Load sunrise data
+  #sunob <- all_state_sun[[state_code]]/720 # 365 days, scaled to maximum 720 = 12 hours
+  
+  ## Load humidity data
+  climob <- all_state_hum[[state_code]] # multiple years
+  climob <- matrix(climob, nrow = length(climob)/365, ncol = 365, byrow = TRUE)
+  climob <- colMeans(climob) # 365 days
+  
+  epiob <- read.csv(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv")) # blank field automatically NA
+  epiob <- epiob[epiob$WEEK <= 52, ] # cap year to 52 weeks
+  mask <- is.na(epiob$TOTAL.SPECIMENS) | (epiob$TOTAL.SPECIMENS == 0) | (epiob$X.UNWEIGHTED.ILI == 0) # missing data: no. of test is 0 or NA, or no sympotomatic patient
+  cat(">>", state_code, sum(mask), "weeks masked", "\n")
+  epiob <- epiob[!mask, ]
+  
+  k <- epiob$TOTAL.A + epiob$TOTAL.B
+  TT <- epiob$TOTAL.SPECIMENS
+  pi <- epiob$X.UNWEIGHTED.ILI/100
+  epiob$est_I <- k/TT*pi
+  avg_inf <- aggregate(est_I ~ WEEK, data = epiob, mean)
+  
+  hum_pred <- SIRSvar_pred("R0_hum", hum_alpha, list(climob), census_pop)
+  yearly_pred <- hum_pred[((tot_years-1)*364+1):(tot_years*364)][(avg_inf$WEEK*7-3)] # center on Thursday
+  
+  cat(">>", state_code, "r =", cor(avg_inf$est_I, yearly_pred), "\n")
+  # p1 <- qplot(seq(52) , avg_inf$est_I)
+  # p2 <- qplot(seq(52), yearly_pred)
+  # grid.arrange(p1, p2, ncol = 1)
+  
+  dat_I <- c(dat_I, avg_inf$est_I)
+  mod_I <- c(mod_I, yearly_pred)
+}
+
+cor(dat_I, mod_I, method = "spearman")
+
+#############################################
+
+##### calculate estimator of infection rate #####
 infections_df <- data.frame(YEAR=rep(2010:2020, each=52), WEEK=rep(seq(52), times=11))[c(-seq(39), -(560:572)),]
 pop_df <- data.frame(YEAR=rep(2010:2020, each=52), WEEK=rep(seq(52), times=11))[c(-seq(39), -(560:572)),]
 
@@ -86,6 +123,7 @@ for (state_code in states$V1){
 
 write.table(infections_df, "flu_fit/p_estimator.tsv", quote = FALSE, sep="\t", row.names = FALSE)
 write.table(pop_df, "flu_fit/denom_estimator.tsv", quote = FALSE, sep="\t", row.names = FALSE)
+################################################
 
 # # calculate scaling factors
 # p_df <- data.frame("p_hat"=pi*k/TT, "week"=epiob$WEEK)
