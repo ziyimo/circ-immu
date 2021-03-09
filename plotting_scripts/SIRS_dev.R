@@ -224,7 +224,7 @@ ggplot() +
 grid.arrange(p1, p2, ncol = 1)
 
 
-## PASSED
+##### PASSED #####
 
 state_p <- SIRSvar_pred("R0_exp", c(-100), list(climob), census_pop)
 
@@ -292,6 +292,72 @@ ggplot() +
 -sum(dbinom(epi_data$k, size=epi_data$TT, prob=q_adj, log=TRUE)) + 1e2*sum(state_q-q_adj)
 
 ### Experiment R0 models ###
+
+fitted <- readRDS("fit_results/states_QC200.tsv_1e1_sun_0130.rds")
+s_params <- unname(fitted$optim$bestmem[-1]) # do not include `c`
+s_c <- fitted$optim$bestmem[1]
+
+fitted <- readRDS("flu_fit/states_QC200.tsv_1e1_day_0111.rds")
+d_params <- unname(fitted$optim$bestmem[-1]) # do not include `c`
+d_c <- fitted$optim$bestmem[1]
+
+fitted <- readRDS("flu_fit/states_QC200.tsv_1e1_sd_0111.rds")
+sd_params <- unname(fitted$optim$bestmem[-1]) # do not include `c`
+sd_c <- fitted$optim$bestmem[1]
+
+all_state_sun <- read.csv("state_lv_data/state_daily_sunrise_2019.csv")
+all_state_day <- read.csv("state_lv_data/state_daytime_2019.csv")
+
+stateOI <- "AL"
+census_pop <- state_pop$pop[state_pop$code==stateOI]
+sunob <- all_state_sun[[stateOI]]/720 # 365 days, scaled to maximum 720 = 12 hours
+dayob <- all_state_day[[stateOI]]/1440
+
+## Plot R0 values
+#source("R0_mods.R")
+p1 <- ggplot() + 
+  geom_line(data = data.frame("date"= seq(365), "R0"= do.call("R0_sun", c(list(sunob), as.list(s_params)))), 
+            aes(x = date, y=R0), color = "#F0E442") + clean
+
+p2 <- 
+  ggplot() + 
+    # geom_line(data = data.frame("date"= seq(365), "R0"= do.call("R0_sun", c(list(sunob), as.list(s_params)))), 
+    #           aes(x = date, y=R0), color = "#F0E442") + 
+  geom_line(data = data.frame("date"= seq(365), "R0"= do.call("R0_day", c(list(dayob), as.list(d_params)))), 
+            aes(x = date, y=R0), color = "#E69F00") +
+  geom_line(data = data.frame("date"= seq(365), "R0"= do.call("R0_sd", c(list(sunob, dayob), as.list(sd_params)))), 
+            aes(x = date, y=R0), color = "#D55E00") + clean
+
+grid.arrange(p1, p2, ncol = 2)
+
+epiob <- read.csv(paste0("state_lv_data/Flu_data/flu_epi_", stateOI, ".csv")) # blank field automatically NA
+epiob <- epiob[epiob$WEEK <= 52, ] # cap year to 52 weeks
+mask <- is.na(epiob$TOTAL.SPECIMENS) | (epiob$TOTAL.SPECIMENS == 0) | (epiob$X.UNWEIGHTED.ILI == 0) # missing data: no. of test is 0 or NA, or no sympotomatic patient
+cat(">>", stateOI, sum(mask), "weeks masked", "\n")
+epiob <- epiob[!mask, ]
+
+k <- epiob$TOTAL.A + epiob$TOTAL.B
+TT <- epiob$TOTAL.SPECIMENS
+pi <- epiob$X.UNWEIGHTED.ILI/100
+epiob$est_I <- k/TT*pi
+avg_inf <- aggregate(est_I ~ WEEK, data = epiob, median)
+
+s_pred <- SIRSvar_pred("R0_sun", s_params, list(sunob), census_pop)
+s_pred <- s_pred[((tot_years-1)*364+1):(tot_years*364)][(avg_inf$WEEK*7-3)] # center on Thursday
+
+d_pred <- SIRSvar_pred("R0_day", d_params, list(dayob), census_pop)
+d_pred <- d_pred[((tot_years-1)*364+1):(tot_years*364)][(avg_inf$WEEK*7-3)] # center on Thursday
+
+sd_pred <- SIRSvar_pred("R0_sd", sd_params, list(sunob, dayob), census_pop)
+sd_pred <- sd_pred[((tot_years-1)*364+1):(tot_years*364)][(avg_inf$WEEK*7-3)] # center on Thursday
+
+ggplot(data = data.frame(week=seq(52), obs=avg_inf$est_I, s=s_pred*s_c, d=d_pred*d_c, sd=sd_pred*sd_c)) +
+  geom_point(aes(x = week, y=obs), color = "#000000") +
+  geom_line(aes(x = week, y=s), color = "#F0E442") +
+  geom_line(aes(x = week, y=d), color = "#E69F00") +
+  geom_line(aes(x = week, y=sd), color = "#D55E00") + clean
+  
+
 
 library(ggplot2)
 library(gridExtra)

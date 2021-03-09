@@ -26,6 +26,13 @@ R0_day <- function(d_t, alpha, d_0, R0base = 2, R0min = 1.2){
 #param_bounds[["day"]] <- list(low = c(0, -100, 0), high = c(1, 0, 1))
 R0_sun <- R0_day
 
+R0_sunAsym <- function(s_t, alpha_l, alpha_r, s_0, R0base = 2, R0min = 1.2){
+  right <- as.numeric((s_t - s_0) > 0)
+  left <- as.numeric((s_t - s_0) < 0)
+  R0 <- exp(left*alpha_l*(s_t-s_0)^2 + right*alpha_r*(s_t-s_0)^2 + log(R0base - R0min)) + R0min
+  return(R0)
+}
+
 # composite R0 models
 
 R0_hd <- function(h_t, d_t, alpha_1, alpha_2, d_0, R0base = 2, R0min = 1.2){ # humidity + daytime
@@ -63,12 +70,12 @@ if(FALSE){
   cli_range = seq(0, 0.03, by=0.0003)
   
   ggplot() + 
-    # geom_line(data = data.frame("hum"= cli_range, "R0"= R0_hum(cli_range, -5e3, 0)), 
-    #           aes(x = hum, y=R0), color = "#E69F00") +
-    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_hum(cli_range, -1000)), 
-              aes(x = hum, y=R0), color = "#0072B2") +
-    geom_line(data = data.frame("hum"= cli_range, "R0"= R0_day(cli_range, -6650, 0)), 
-              aes(x = hum, y=R0), color = "#009E73") + clean
+    geom_line(data = data.frame("var"= sun_range, "R0"= R0_sunAsym(sun_range, -50, -1, 0.6)),
+              aes(x = var, y=R0), color = "#E69F00") +
+    geom_line(data = data.frame("var"= sun_range, "R0"= R0_sunAsym(sun_range, -10, -10, 0.5)), 
+              aes(x = var, y=R0), color = "#0072B2") +
+    geom_line(data = data.frame("var"= sun_range, "R0"= R0_sunAsym(sun_range, -1, -1, 0.55)), 
+              aes(x = var, y=R0), color = "#009E73") + clean
   
   ggplot() + 
     geom_line(data = data.frame("day"= day_range, "R0"= R0_day(day_range, -10, 0.4)), 

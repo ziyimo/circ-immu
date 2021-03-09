@@ -5,6 +5,7 @@ library(deSolve)
 param_bounds[["cos"]] <- list(low = c(1), high = c(364))
 param_bounds[["hum"]] <- list(low = c(-300), high = c(0))
 param_bounds[["sun"]] <- list(low = c(-500, 0), high = c(0, 1))
+param_bounds[["sunAsym"]] <- list(low = c(-500, -500, 0), high = c(0, 0, 1))
 param_bounds[["hs"]] <- list(low = c(-300, -500, 0), high = c(0, 0, 1))
 
 param_bounds[["day"]] <- list(low = c(-500, 0), high = c(0, 1))
@@ -53,46 +54,52 @@ SEIH_R0 <- function(time, state, theta){
   return(list(c(dS, dE, dI, dH, dR)))
 }
 
-
-run_SEIH <- function(census_pop, prop_init, hpt_rate, R0_func, R0_params, var_ls){
+parameter_names <- c("prop_init", "incb_prd", "inf_prd", "hpt_rate", "hpt_prd", "R0min", "R0range")
+run_SEIH <- function(R0_func, var_ls, census_pop, prop_init, incb_prd, inf_prd, hpt_rate, hpt_prd, R0min, R0range, R0_params){
     
   xstart <- c(S = census_pop*(1-prop_init), E = 0, I = census_pop*prop_init, H = 0, R = 0) # use actual state population
   times <- seq(73, 396) # from national emergency declaration to end of Jan 2021 !!
-  annual_R0 <- do.call(R0_func, c(var_ls, as.list(R0_params)))
+  annual_R0 <- do.call(R0_func, c(var_ls, as.list(c(R0_params, R0min+R0range, R0min))))
   
   # some hard-coded parameters
-  paras = list(sigma = 5,
+  paras = list(sigma = incb_prd,
                h = hpt_rate,
-               lambda = 5,
-               gam = 5,
-               k = 10,
+               lambda = inf_prd,
+               gam = inf_prd,
+               k = hpt_prd,
                R0 = rep(annual_R0, times=2)) # pre-calculated R0 values
   
   predictions <- as.data.frame(ode(xstart, times, SEIH_R0, paras)) # run SIRS model
   return(predictions)
 }
 
-pois_L <- function(prms, R0_model, var_obs, hosp_df, pop_size){
-  seed_prop <- prms[1]
-  hrate <- prms[2]
-  R0_min <- prms[3]
-  R0_range <- prms[4]
-  R0_prms <- prms[-1:-4]
+pois_L <- function(prms, fixed_prms, tune_mask, R0_model, var_obs, hosp_df, pop_size){
+  # 7 parameters: prop_init, incb_prd, inf_prd, hpt_rate, hpt_prd, R0min, R0range
+  no_tune <- sum(tune_mask)
+  tune_prms <- prms[1:no_tune]
+  R0_prms <- prms[-1:-no_tune]
   
-  mod_pred <- run_SEIH(pop_size, seed_prop, hrate, R0_model, c(R0_prms, R0_min+R0_range, R0_min), var_obs)
+  all_prms <- numeric(7)
+  all_prms[tune_mask] <- tune_prms
+  all_prms[!tune_mask] <- fixed_prms
+  
+  mod_pred <- do.call(run_SEIH, c(list(R0_model, var_obs, pop_size), as.list(all_prms), list(R0_prms)))
   result <- merge(mod_pred, hosp_df, by.x = "time", by.y = "date")
   neg_log_L <- -sum(dpois(result$hospitalizedCurrently, result$H, log = TRUE))
   return(neg_log_L)
 }
 
-norm_L <- function(prms, R0_model, var_obs, hosp_df, pop_size){
-  seed_prop <- prms[1]
-  hrate <- prms[2]
-  R0_min <- prms[3]
-  R0_range <- prms[4]
-  R0_prms <- prms[-1:-4]
+norm_L <- function(prms, fixed_prms, tune_mask, R0_model, var_obs, hosp_df, pop_size){
+  # 7 parameters: prop_init, incb_prd, inf_prd, hpt_rate, hpt_prd, R0min, R0range
+  no_tune <- sum(tune_mask)
+  tune_prms <- prms[1:no_tune]
+  R0_prms <- prms[-1:-no_tune]
   
-  mod_pred <- run_SEIH(pop_size, seed_prop, hrate, R0_model, c(R0_prms, R0_min+R0_range, R0_min), var_obs)
+  all_prms <- numeric(7)
+  all_prms[tune_mask] <- tune_prms
+  all_prms[!tune_mask] <- fixed_prms
+  
+  mod_pred <- do.call(run_SEIH, c(list(R0_model, var_obs, pop_size), as.list(all_prms), list(R0_prms)))
   result <- merge(mod_pred, hosp_df, by.x = "time", by.y = "date")
   neg_log_L <- -sum(dnorm(result$hospitalizedCurrently, mean = result$H, log = TRUE))
   return(neg_log_L)

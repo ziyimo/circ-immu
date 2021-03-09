@@ -146,13 +146,13 @@ grid.arrange(p1, p2, p3, p4, ncol = 2)
 
 ########################
 
-state_eg <- "MA"
+state_eg <- "MS"
 census_pop <- state_pop$pop[state_pop$code==state_eg]
 sunob <- all_state_sun[[state_eg]]/720
 dayob <- all_state_day[[state_eg]]/1440
-climob <- all_state_hum[[state_eg]] # multiple years
-climob <- matrix(climob, nrow = length(climob)/365, ncol = 365, byrow = TRUE)
-climob <- colMeans(climob) # 365 days
+# climob <- all_state_hum[[state_eg]] # multiple years
+# climob <- matrix(climob, nrow = length(climob)/365, ncol = 365, byrow = TRUE)
+# climob <- colMeans(climob) # 365 days
 
 state_df <- subset(covid_df, state == state_eg)
 #rownames(state_df) <- state_df$date
@@ -164,18 +164,19 @@ state_hos <- subset(state_df, select = c("date", "hospitalizedCurrently"))
 
 run_instance <- function(prms, R0_model, var_obs){
   seed_prop <- prms[1]
-  hrate <- prms[2]
-  R0_min <- prms[3]
-  R0_range <- prms[4]
-  R0_prms <- prms[-1:-4]
+  hrate <- 0.026 #prms[2]
+  R0_min <- prms[2]
+  R0_range <- prms[3]
+  R0_prms <- prms[-1:-3]
   
   R0_vals <- do.call(R0_model, c(var_obs, as.list(c(R0_prms, R0_min+R0_range, R0_min))))
-  mod_pred <- run_SEIH(census_pop, seed_prop, hrate, R0_model, c(R0_prms, R0_min+R0_range, R0_min), var_obs)
+  #mod_pred <- run_SEIH(census_pop, seed_prop, hrate, R0_model, c(R0_prms, R0_min+R0_range, R0_min), var_obs)
+  mod_pred <- run_SEIH(R0_model, var_obs, census_pop, seed_prop, 5, 5, hrate, 10, R0_min, R0_range, R0_prms)
   result <- merge(mod_pred, state_hos, by.x = "time", by.y = "date", all.x=TRUE)
   #cat(-sum(dpois(result$hospitalizedCurrently, result$H, log = TRUE)))
   
-  p1 <- ggplot(data = data.frame("time"= 73:(365+72), "R0"= c(R0_vals[73:365], R0_vals[1:72]))) +
-    geom_line(aes(x = time, y=R0), color = "black") + clean
+  p1 <- ggplot(data = data.frame("time"= 73:(365+31), "Re"= c(R0_vals[73:365], R0_vals[1:31])*mod_pred$S/census_pop)) +
+    geom_line(aes(x = time, y=Re), color = "black") + clean
   
   # p4 <- ggplot(data = mod_pred) + 
   #   geom_line(aes(x = time, y=E), color = "#CC79A7") +
@@ -192,7 +193,7 @@ run_instance <- function(prms, R0_model, var_obs){
   p3 <- ggplot(data = result) + 
     geom_line(aes(x = time, y=hospitalizedCurrently), color = "#D55E00") +
     geom_line(aes(x = time, y=H), color = "#0072B2") + 
-    xlim(73, 365+72) + clean
+    xlim(73, 365+31) + clean
   
   grid.arrange(p1, p3, ncol = 1)
   #return(neg_log_L)
@@ -240,7 +241,7 @@ run_instance <- function(prms, R0_model, var_obs){
 
 load("fit_results/states_49DC.tsv_sun_020420_pso_iterative.rds") # ss_fit and seed_sh
 fit_prms <- c(ss_fit[[state_eg]][1], seed_sh, ss_fit[[state_eg]][2])
-#fit_prms <- c(0.0001930657, 0.0386439073, 1.185171, 2.106715, -340.1579, 0.2060147761)
+fit_prms <- c(0.0008, 0.05, 0.868, 0.354, -135, 0.561)
 run_instance(fit_prms, "R0_sun", list(sunob))
 
 load("covid_hosp_fit/states_49DC.tsv_day_020418_pso_iterative.rds")
@@ -249,7 +250,7 @@ run_instance(fit_prms, "R0_day", list(dayob))
 
 load("covid_hosp_fit/states_49DC.tsv_sd_020521_pso_iterative.rds")
 fit_prms <- c(ss_fit[[state_eg]],
-                seed_sh[(no_cdv+1):(no_cdv+4)],
+                seed_sh[(no_cdv+1):(no_cdv+3)],
                 seed_sh[state2reg$CDV.Code[state2reg$State.Code == state_eg]],
-                seed_sh[-1:-(no_cdv+4)])
+                seed_sh[-1:-(no_cdv+3)])
 run_instance(fit_prms, "R0_sd", list(sunob, dayob))

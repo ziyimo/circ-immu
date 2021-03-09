@@ -15,13 +15,14 @@ export R_LIBS_USER=/grid/siepel/home_norepl/mo/R/x86_64-pc-linux-gnu-library/4.0
 
 STATES=$1
 R0MOD=$2
-FIXED=$3 # ONLY the fixed params
+SEED_SH=$3 # incb_prd, inf_prd, hpt_rate, hpt_prd, R0min, R0range, [R0_params]
 TUNE_MASK=$4 # prop_init, incb_prd, inf_prd, hpt_rate, hpt_prd, R0min, R0range
 
 echo "_START_$(date)"
 echo "Model: ${R0MOD}"
 
-./fit_hosp.R $STATES $R0MOD $FIXED $TUNE_MASK 25 # manually code the number of threads
+#./fit_hosp.R $STATES $R0MOD $SEED 25 # manually code the number of threads
+./fit_hosp_iter.R $STATES $R0MOD $SEED_SH $TUNE_MASK 25
 
 echo "_EXITSTAT_$?"
 echo "_END_$(date)"
