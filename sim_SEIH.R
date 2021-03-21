@@ -7,7 +7,7 @@ source("SEIH_mod.R")
 
 args <- commandArgs(trailingOnly=TRUE)
 hospr <- args[1]
-var_scale <- as.numeric(args[2])
+#var_scale <- as.numeric(args[2]) # deprecated
 
 states <- read.delim("states_49DC.tsv", header = FALSE)$V1
 no_states <- length(states)
@@ -27,10 +27,12 @@ state2reg$CDV.Code <- match(state2reg$Division, cdv)
 
 #param <- as.numeric(strsplit(param, " ", fixed=TRUE)[[1]])
 load(paste0("covid_hosp_fit/eta", hospr, "_sd_iter.rds")) # ss_fit and seed_sh
+resamp <- readRDS(paste0("covid_hosp_fit/sd.boot.eta", hospr, "_seeded.rds")) # load from bootstrapped parameter values
 hospr <- as.numeric(hospr)
-cov_Mtx <- readRDS(paste0("covid_hosp_fit/sd", hospr, "_1g5e-3_covMtx.rds")) # read covariant matrix
 
-resamp <- mvrnorm(n=10, seed_sh, cov_Mtx*var_scale) # 10 replicates for now
+# cov_Mtx <- readRDS(paste0("covid_hosp_fit/sd", hospr, "_1g5e-3_covMtx.rds")) # read covariant matrix
+# resamp <- mvrnorm(n=10, seed_sh, cov_Mtx*var_scale) # 10 replicates for now
+
 prms_sets <- rbind(seed_sh, resamp)
 no_reps <- nrow(prms_sets)
 
@@ -55,12 +57,12 @@ sim_SEIH <- function(prms, R0_func, var_ls, census_pop){
   
   predictions <- as.data.frame(ode(xstart, times, SEIH_R0, paras)) # run SIRS model
   
-  # Bug fixed!!
   annual_H1 <- sum(predictions$H[2:(396-72)] - 0.9*predictions$H[1:(396-73)]) # for k = 10
   annual_H2 <- sum(hospr/5*predictions$I[1:(396-72)]) # for lambda = 5
-  cat(annual_H1, annual_H2, predictions$R[396-72]/census_pop, "\n") # sanity check
+  ye_recvd <- predictions$R[396-72]/census_pop # proportion of recovered year end
+  cat(annual_H1, annual_H2, ye_recvd, "\n") # sanity check
   
-  return(list(hosp_traj=predictions$H, tot_hosp=annual_H1))
+  return(list(hosp_traj=predictions$H, tot_hosp=annual_H1, year_end_Rem=ye_recvd))
 }
 
 ####  CR level aggregation + counterfactual sim  ####
@@ -76,7 +78,7 @@ dst_trajs <- list()
 nodst_trajs <- list()
 permdst_trajs <- list()
 
-for (item in CR){
+for (item in states){ # record state lv. traj.
   dst_trajs[[item]] <- matrix(0, ncol = no_reps, nrow = length(seq(73, 365+31)))
   nodst_trajs[[item]] <- matrix(0, ncol = no_reps, nrow = length(seq(73, 365+31)))
   permdst_trajs[[item]] <- matrix(0, ncol = no_reps, nrow = length(seq(73, 365+31)))
@@ -84,6 +86,7 @@ for (item in CR){
 
 nodst_rc <- data.frame(matrix(ncol = no_reps, nrow = no_states+1), row.names = c(states, "ALL"))
 permdst_rc <- data.frame(matrix(ncol = no_reps, nrow = no_states+1), row.names = c(states, "ALL"))
+year_end_R <- data.frame(matrix(ncol = no_reps, nrow = no_states), row.names = states) # proportion recovered
 
 for (samp_i in seq(no_reps)){
 
@@ -111,9 +114,11 @@ for (samp_i in seq(no_reps)){
     state_CR <- state2reg$Region[state2reg$State.Code == state_eg]
     DST_sim <- sim_SEIH(state_prms, "R0_sd", list(sunob, dayob), census_pop)
     
-    dst_trajs[[state_CR]][, samp_i] <- dst_trajs[[state_CR]][, samp_i] + DST_sim$hosp_traj
+    #dst_trajs[[state_CR]][, samp_i] <- dst_trajs[[state_CR]][, samp_i] + DST_sim$hosp_traj
     #annual_cnt[state_CR, "wdst"] <- annual_cnt[state_CR, "wdst"] + DST_sim$tot_hosp
+    dst_trajs[[state_eg]][, samp_i] <- DST_sim$hosp_traj
     annual_cnt[state_eg, "wdst"] <- DST_sim$tot_hosp
+    year_end_R[state_i, samp_i] <- DST_sim$year_end_Rem
     
     if (state_eg %in% c("AZ", "HI")){
       sansDST_sim <- DST_sim
@@ -122,13 +127,15 @@ for (samp_i in seq(no_reps)){
       sansDST_sim <- sim_SEIH(state_prms, "R0_sd", list(sunob-DST, dayob), census_pop)
       permDST_sim <- sim_SEIH(state_prms, "R0_sd", list(sunob+permDST, dayob), census_pop)
     }
-    nodst_trajs[[state_CR]][, samp_i] <- nodst_trajs[[state_CR]][, samp_i] + sansDST_sim$hosp_traj
-    annual_cnt[state_eg, "wodst"] <-sansDST_sim$tot_hosp
+    #nodst_trajs[[state_CR]][, samp_i] <- nodst_trajs[[state_CR]][, samp_i] + sansDST_sim$hosp_traj
     #annual_cnt[state_CR, "wodst"] <- annual_cnt[state_CR, "wodst"] + sansDST_sim$tot_hosp
+    nodst_trajs[[state_eg]][, samp_i] <- sansDST_sim$hosp_traj
+    annual_cnt[state_eg, "wodst"] <-sansDST_sim$tot_hosp
     
-    permdst_trajs[[state_CR]][, samp_i] <- permdst_trajs[[state_CR]][, samp_i] + permDST_sim$hosp_traj
-    annual_cnt[state_eg, "permdst"] <- permDST_sim$tot_hosp
+    #permdst_trajs[[state_CR]][, samp_i] <- permdst_trajs[[state_CR]][, samp_i] + permDST_sim$hosp_traj
     #annual_cnt[state_CR, "permdst"] <- annual_cnt[state_CR, "permdst"] + permDST_sim$tot_hosp
+    permdst_trajs[[state_eg]][, samp_i] <- permDST_sim$hosp_traj
+    annual_cnt[state_eg, "permdst"] <- permDST_sim$tot_hosp
   }
   
   nodst_rc[1:no_states, samp_i] <- (annual_cnt$wodst - annual_cnt$wdst)/annual_cnt$wdst
@@ -136,10 +143,10 @@ for (samp_i in seq(no_reps)){
   
   nodst_rc[(no_states+1), samp_i] <- (sum(annual_cnt$wodst) - sum(annual_cnt$wdst))/sum(annual_cnt$wdst)
   permdst_rc[(no_states+1), samp_i] <- (sum(annual_cnt$permdst) - sum(annual_cnt$wdst))/sum(annual_cnt$wdst)
-  cat(">> Rep", samp_i, "vs=", var_scale, ":", nodst_rc[(no_states+1), samp_i], permdst_rc[(no_states+1), samp_i], "\n")
+  cat(">> Rep", samp_i, ":", nodst_rc[(no_states+1), samp_i], permdst_rc[(no_states+1), samp_i], "\n")
 }
 
 time_stamp <- format(Sys.time(), "%m%d%H")
-saveRDS(prms_sets, file = paste0("covid_hosp_fit/eta", hospr, "_var", var_scale,  "_", time_stamp, "_prmsamps.rds"))
-save(dst_trajs, nodst_trajs, permdst_trajs, nodst_rc, permdst_rc,
-     file = paste0("covid_hosp_fit/eta", hospr, "_var", var_scale,  "_", time_stamp,  "_sims.RDa"))
+#saveRDS(prms_sets, file = paste0("covid_hosp_fit/eta", hospr, "_var", var_scale,  "_", time_stamp, "_prmsamps.rds")) # deprecated for bootstrap method
+save(dst_trajs, nodst_trajs, permdst_trajs, nodst_rc, permdst_rc, year_end_R,
+     file = paste0("covid_hosp_fit/eta", hospr, "_bootsims_", time_stamp, ".RDa"))

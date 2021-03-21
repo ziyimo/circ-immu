@@ -1,7 +1,6 @@
 #!/usr/bin/env Rscript
 
 library(deSolve)
-library(MASS)
 source("R0_mods.R")
 source("SIRS_model.R")
 
@@ -10,13 +9,25 @@ state_ls <- "states_QC200.tsv"      # text file with a list of states to fit to
 R0_mod <- "sd"        # R0 model
 #R0_params <- as.numeric(strsplit(args[1], ":", fixed=TRUE)[[1]]) # do not include `c`
 l_pnl <- args[1]         # lambda (for bookkeeping only)
+mode <- args[2]
 
-handle <- paste0(state_ls, l_pnl, R0_mod, "_sims")
+handle <- paste0(state_ls, l_pnl, R0_mod, "_", mode, "sims_trial")
 
 fitted <- readRDS(Sys.glob(paste0("flu_fit/", paste(state_ls, l_pnl, R0_mod, "*.rds" ,sep="_"))))
 prms_optim <- unname(fitted$optim$bestmem[-1]) # do not include `c`
-cov_Mtx <- readRDS(paste0("flu_fit/", R0_mod, as.numeric(l_pnl), "_1g5e-3_covMtx.rds")) # read covariant matrix
-resamp <- mvrnorm(n=10, prms_optim, cov_Mtx) # 10 replicates for now
+
+if (mode == "hess"){
+  library(MASS)
+  ## Hessian ##
+  cov_Mtx <- readRDS(paste0("flu_fit/", R0_mod, as.numeric(l_pnl), "_1g5e-3_covMtx.rds")) # read covariant matrix
+  resamp <- mvrnorm(n=10, prms_optim, cov_Mtx) # 10 replicates for now
+  saveRDS(rbind(prms_optim, resamp), file = paste0("flu_fit/", handle, "_prmsamps.rds"))
+} else if (mode == "boot") {
+  ## Bootstrap ##
+  #resamp <- matrix(as.numeric(unlist(strsplit(prms_str, " +"))), byrow = TRUE, ncol = 4) # for premature checking
+  resamp <- readRDS(paste0("flu_fit/sd_bootprms_", l_pnl, "_trial.rds")) # change handle
+}
+
 prms_sets <- rbind(prms_optim, resamp)
 no_reps <- nrow(prms_sets)
 
@@ -119,7 +130,6 @@ for (samp_i in seq(no_reps)){
   cat(">> Rep", samp_i, ":", nodst_rc[(length(states)+1), samp_i], permdst_rc[(length(states)+1), samp_i], "\n")
 }
 
-saveRDS(prms_sets, file = paste0("flu_fit/", handle, "_prmsamps.rds"))
 write.table(dst_trajs, file = paste0("flu_fit/", handle, "_dstTraj.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
 write.table(nodst_trajs, file = paste0("flu_fit/", handle, "_sansdstTraj.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
 write.table(permdst_trajs, file = paste0("flu_fit/", handle, "_permdstTraj.tsv"), quote=FALSE, sep="\t", row.names=FALSE)
