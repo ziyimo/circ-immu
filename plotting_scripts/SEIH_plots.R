@@ -5,7 +5,7 @@ clean <- theme(panel.grid.major = element_blank(), panel.grid.minor = element_bl
                panel.background = element_blank(), axis.line = element_line(colour = "black"),
                text = element_text(size=20))
 
-load("covid_hosp_fit/eta0.05_bootsims_032114.RDa") # load simulation results
+load("covid_hosp_fit/eta0.026_bootsims_032114.RDa") # load simulation results
 
 CR_hosp <- readRDS("state_lv_data/censusReg_hospitalization.rds")
 CR_hosp$date <- as.Date(CR_hosp$date, origin = "2020-01-01")
@@ -67,17 +67,24 @@ nodst_plt$juri <- row.names(nodst_rc)
 
 plt_df <- rbind(permdst_plt, nodst_plt)
 
+# Load death data directly from file
+plt_df <- read.csv("fit_results/state_deaths_change.csv", header=T, sep=",")
+colnames(plt_df) <- c("juri", "opt", "low", "high", "regime")
+nodst_plt <- plt_df[1:46,]
+permdst_plt <- plt_df[47:92,]
+
 ordering <- c(intersect(order(nodst_plt$opt), which(nodst_plt$opt < permdst_plt$opt)),
               intersect(order(-permdst_plt$opt), which(nodst_plt$opt>= permdst_plt$opt)))
 # ordering <- order(nodst_plt$opt-permdst_plt$opt)
 plt_df$juri <- factor(plt_df$juri, levels = permdst_plt$juri[ordering], order = TRUE)
+plt_df$regime <- factor(plt_df$regime, levels = c("ST", "DST"), order = TRUE)
 
 ggplot(plt_df, aes(x=juri, y=opt, fill=regime)) +
   geom_bar(stat="identity", color="black", position=position_dodge(), width = 0.8)+
   geom_errorbar(aes(ymin=low, ymax=high), width=.2,
                 position=position_dodge(.8)) +
-  scale_fill_manual(values=c('#7570B3','#800020')) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(-0.4, 0.8, 0.2)) +
+  scale_fill_manual(values=c('#7570B3', '#800020')) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(-0.5, 1, 0.25)) +
   theme(axis.text.x = element_text(size=9), axis.text.y = element_text(size=15), axis.line.x = element_blank()) + clean
 
 ########### state-level facet plots ###########
@@ -162,11 +169,15 @@ sero_recv_df$State <- factor(sero_recv_df$State, levels = y_end_sero$State[order
 
 sero_recv_df <- subset(sero_recv_df, State %in% intersect(y_end_sero$State, row.names(year_end_R)))
 
+## Read death directly from file
+sero_recv_df <- read.csv("fit_results/sero_recv_df.csv", header=T, sep=",")
+sero_recv_df$State <- factor(sero_recv_df$State, levels = y_end_sero$State[ordering], order = TRUE)
+
 ggplot(sero_recv_df, aes(x=State, y=Rate, fill=Regime)) +
   geom_bar(stat="identity", color="black", position=position_dodge(), width = 0.8)+
   geom_errorbar(aes(ymin=Lower_CI, ymax=Upper_CI), width=.2,
                 position=position_dodge(.8)) +
-  scale_fill_manual(values=c('#ff0000','#ffc100')) +
-  #scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(-0.4, 0.8, 0.2)) +
+  scale_fill_manual(values=c('#ffc100', '#ff0000')) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
   theme(axis.text.x = element_text(size=9), axis.text.y = element_text(size=15), axis.line.x = element_blank()) + clean
 
