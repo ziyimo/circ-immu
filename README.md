@@ -1,4 +1,4 @@
-## circ-immu
+### Epidemiological modeling of the circadian immunity project
 
 #### Dependencies
 
@@ -8,38 +8,42 @@ To make sure the `DEoptim` package used is bug-free for parallelized optimizatio
 
 #### Scripts
 
-* `SIRS_dev.R`: __Sandbox__
+* `R0_mods.R`: __Family of $R_0$-covariate models__
+
+_Flu analysis_
+
+* `states_flu_analysis.tsv`: __List of states included in the flu analysis__
 
 * `SIRS_model.R`: __Core functions of the SIRS model__
 
-  `R0_*`: A library of R0 models, see code for details
-  
-  `SIRS_R0`: Differention equations of SIRS model given pre-computed R0 values
-  
-  `SIRSvar_pred`: Run SIRS model given i) R0 model, ii) R0 parameters, iii) a list of variables, and iv) population size, returns raw model predictions (p)
-  
-  `p2q`: Scaling and capping of model predictions given data, returns binomial prob (q)
-  
-  `binom_Lp`: Wrapper for single state binomial likelihood
-  
-  `load_state_epi`: Function for loading state epidemiological data
+* `fit_postest.R`: __Main model fitting script__
 
-* `fit_all.R`: __Fit model jointly to many states__
+[//]: # (Usage: `$ nohup ./fit_all.R [state_ls.tsv] [R0_model] [lambda] &`)
 
-  Usage: `$ nohup ./fit_all.R [state_ls.tsv] [R0_model] [lambda] &`
+[//]: #   (`[state_code]`: 2-letter state code)
+[//]: # 
+[//]: #   (`[R0_model]`: functional form of R0, see `SIRS_model.R` code for options)
+[//]: # 
+[//]: #   (`[lambda]`: penalty for neg-log-likelihood when model prediction exceeds cap)
 
-    `[state_code]`: 2-letter state code
+* `hessian_flufit.R`: __Curvature analysis of parameter variance using the Hessian__
 
-    `[R0_model]`: functional form of R0, see `SIRS_model.R` code for options
+* `fit_postest_boot.R`: __Fit resampled parameter values through bootstrap__
 
-    `[lambda]`: penalty for neg-log-likelihood when model prediction exceeds cap
+* `sim_SIRS.R`: __Forward simulations of the flu SIRS models__
 
-* `fit_state.R`: __Fit model to one state__
+_COVID hospitalization analysis_
 
-  Usage: `$ nohup ./fit_state.R [state_code] [R0_model] [lambda] &`
+* `states_COVID_hosp_analysis.tsv`: __List of states included in the COVID hospitalization analysis__
 
-    `[state_code]`: 2-letter state code
+* `SEIH_mod.R`: __Core functions of the SIR-derived hospitalization model__
 
-* `plot_SIRS.R`: __Some plotting functions__ (deprecated, to be updated)
+* `fit_hosp.R`: __Main model fitting script__
 
-* `tally.R`: __Aggregate state level fitting results__ (deprecated, to be updated)
+* `fit_hosp_iter.R`: __Iterative optimization script__
+
+* `hessian_hospfit.R`: __Curvature analysis of parameter variance using the Hessian__
+
+* `fit_hosp_boot.R`: __Fit resampled parameter values through bootstrap__
+
+* `sim_SEIH.R`: __Forward simulations of the COVID hospitalization models__
