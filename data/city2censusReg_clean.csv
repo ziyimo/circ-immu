@@ -1,0 +1,32 @@
+city,region,cregion
+Atlanta,SouthAtlantic,South
+Berlin,CEU,CEU
+Boston,NewEngland,Northeast
+Chicago,EastNorthCentral,Midwest
+Denver,Mountain,West
+Houston,WestSouthCentral,South
+Los Angeles,Pacific,West
+Madrid,SEU,SEU
+Miami,SouthAtlantic,South
+Phoenix,Mountain,West
+Rome,SEU,SEU
+Seattle,Pacific,West
+St Louis,WestNorthCentral,Midwest
+Toronto,MiddleAtlantic,Northeast
+Birmingham,CEU,CEU
+Cologne,CEU,CEU
+Dallas,WestSouthCentral,South
+Hamburg,CEU,CEU
+London,CEU,CEU
+New York,MiddleAtlantic,Northeast
+Sacramento,Pacific,West
+San Diego,Pacific,West
+San Francisco,Pacific,West
+Stockholm,CEU,CEU
+Stuttgart,CEU,CEU
+Tucson,Mountain,West
+Melbourne,AUS,AUS
+Santiago,SA,SA
+Delhi,IND,IND
+Vancouver,Pacific,West
+Mexico City,WestSouthCentral,South

@@ -1,0 +1,1 @@
+paste <(cat cities_sunrise.csv| tr ',' '\t'|sed 's/ /_/g' | sort -k2,2 -k3,3nr| awk '!seen[$2] {print} {++seen[$2]}') <(cat cities_sunrise.csv| tr ',' '\t'| sed 's/ /_/g' |sort -k2,2 -k3,3n| awk '!seen[$2] {print} {++seen[$2]}')| cut -f2,3,6 |awk -v OFS="," '{print $1,$2/720,$3/720}'| sed 's/_/ /g' > cities_max_min_s0.csv

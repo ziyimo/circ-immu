@@ -1,0 +1,112 @@
+fit_results/data/globalcity_clean.txt_sd_03182303.log>>> Loading state data: Atlanta <<<
+>>> Loading state data: Berlin <<<
+>>> Loading state data: Boston <<<
+>>> Loading state data: Chicago <<<
+>>> Loading state data: Denver <<<
+>>> Loading state data: Houston <<<
+>>> Loading state data: Los Angeles <<<
+>>> Loading state data: Madrid <<<
+>>> Loading state data: Miami <<<
+>>> Loading state data: Phoenix <<<
+>>> Loading state data: Rome <<<
+>>> Loading state data: Seattle <<<
+>>> Loading state data: St Louis <<<
+>>> Loading state data: Toronto <<<
+>>> Loading state data: Birmingham <<<
+>>> Loading state data: Cologne <<<
+>>> Loading state data: Dallas <<<
+>>> Loading state data: Hamburg <<<
+>>> Loading state data: London <<<
+>>> Loading state data: New York <<<
+>>> Loading state data: Sacramento <<<
+>>> Loading state data: San Diego <<<
+>>> Loading state data: San Francisco <<<
+>>> Loading state data: Stockholm <<<
+>>> Loading state data: Stuttgart <<<
+>>> Loading state data: Tucson <<<
+>>> Loading state data: Melbourne <<<
+>>> Loading state data: Santiago <<<
+>>> Loading state data: Delhi <<<
+>>> Loading state data: Vancouver <<<
+>>> Loading state data: Mexico City <<<
+ [1]    0.540    0.400    0.430    0.440    0.460    0.530    0.480    0.570
+ [9]    0.540    0.450    0.470    0.440    0.470    0.470    0.400    0.450
+[17]    0.530    0.410    0.400    0.450    0.480    0.480    0.490    0.300
+[25]    0.450    0.440    0.490    0.540    0.450    0.430    0.550    0.001
+[33]    0.800    0.600 -500.000 -500.000    0.000
+ [1] 0.660 0.690 0.610 0.610 0.620 0.630 0.600 0.710 0.630 0.620 0.630 0.660
+[13] 0.620 0.660 0.690 0.710 0.640 0.710 0.670 0.620 0.630 0.590 0.630 0.720
+[25] 0.680 0.610 0.630 0.700 0.600 0.670 0.630 0.001 1.200 1.300 0.000 0.000
+[37] 1.000
+ [1]    0.5616531    0.5857182    0.5515381    0.5487872    0.5436690
+ [6]    0.5326105    0.5999994    0.6127043    0.5435578    0.5752417
+[11]    0.5403226    0.6599999    0.6199999    0.5482508    0.6396637
+[16]    0.7099759    0.5524150    0.5933308    0.6551963    0.5901898
+[21]    0.5353083    0.4977788    0.5328646    0.6337159    0.5756330
+[26]    0.5774914    0.4900002    0.5706977    0.5274690    0.5792556
+[31]    0.5523559    0.0010000    0.9568725    1.3000000 -499.9944096
+[36]  -91.9769067    0.4173210
+ [1]    0.5900000    0.5900000    0.5900000    0.5900000    0.5900000
+ [6]    0.5900000    0.5900000    0.5900000    0.5900000    0.5900000
+[11]    0.5900000    0.5900000    0.5900000    0.5900000    0.5900000
+[16]    0.5900000    0.5900000    0.5900000    0.5900000    0.5900000
+[21]    0.5900000    0.5900000    0.5900000    0.5900000    0.5900000
+[26]    0.5900000    0.5900000    0.5900000    0.5900000    0.5900000
+[31]    0.5900000    0.0010000    0.9568725    1.3000000 -499.9944096
+[36]  -91.9769067    0.4173210
+96 cores seen; limit to 24 cores
+ [1]    0.5616531    0.5857182    0.5515381    0.5487872    0.5436690
+ [6]    0.5326105    0.5999994    0.6127043    0.5435578    0.5752417
+[11]    0.5403226    0.6599999    0.6199999    0.5482508    0.6396637
+[16]    0.7099759    0.5524150    0.5933308    0.6551963    0.5901898
+[21]    0.5353083    0.4977788    0.5328646    0.6337159    0.5756330
+[26]    0.5774914    0.4900002    0.5706977    0.5274690    0.5792556
+[31]    0.5523559    0.0010000    0.9568725    1.3000000 -499.9944096
+[36]  -91.9769067    0.4173210
+>> sd Resamp 1 : 18 12 27 4 8 3 14 4 29 25 22 4 31 1 18 27 15 20 8 3 27 17 4 25 11 21 5 13 29 7 30 
+>> Opt param @ resamp: 79521.75 
+S=22, K=3, p=0.1303, w0=0.7213, w1=0.7213, c.p=1.193, c.g=1.193
+v.max=NA, d=6.083, vectorize=FALSE, hybrid=off
+It 5: fitness=223900
+It 10: fitness=206500
+It 15: fitness=159200
+It 20: fitness=152600
+It 25: fitness=145500
+It 30: fitness=137700
+It 35: fitness=126000
+It 40: fitness=124200
+It 45: fitness=121500
+It 50: fitness=119700
+It 55: fitness=115700
+It 60: fitness=110800
+It 65: fitness=102000
+It 70: fitness=102000
+It 75: fitness=101300
+It 80: fitness=100500
+It 85: fitness=96680
+It 90: fitness=95530
+It 95: fitness=95120
+It 100: fitness=94190
+It 105: fitness=93180
+It 110: fitness=91760
+It 115: fitness=90010
+It 120: fitness=89890
+It 125: fitness=89150
+It 130: fitness=88580
+It 135: fitness=88030
+It 140: fitness=87740
+It 145: fitness=87690
+It 150: fitness=86900
+It 155: fitness=86210
+It 160: fitness=86060
+It 165: fitness=85270
+It 170: fitness=85060
+It 175: fitness=84030
+It 180: fitness=83640
+It 185: fitness=83420
+It 190: fitness=83190
+It 195: fitness=82870
+It 200: fitness=82630
+It 205: fitness=82390
+It 210: fitness=82290
+It 215: fitness=82240

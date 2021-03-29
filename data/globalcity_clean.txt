@@ -1,0 +1,31 @@
+Atlanta
+Berlin
+Boston
+Chicago
+Denver
+Houston
+Los Angeles
+Madrid
+Miami
+Phoenix
+Rome
+Seattle
+St Louis
+Toronto
+Birmingham
+Cologne
+Dallas
+Hamburg
+London
+New York
+Sacramento
+San Diego
+San Francisco
+Stockholm
+Stuttgart
+Tucson
+Melbourne
+Santiago
+Delhi
+Vancouver
+Mexico City
