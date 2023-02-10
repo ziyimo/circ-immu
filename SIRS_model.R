@@ -11,6 +11,14 @@ param_bounds[["hsd"]] <- list(low = c(0, -300, -100, 0, -100, 0), high = c(1, 0,
 
 param_bounds[["sun"]] <- list(low = c(0, -100, 0), high = c(1, 0, 1))
 
+param_bounds[["tmp"]] <- list(low = c(0, -1, 240), high = c(1, 0, 300))
+param_bounds[["tmpLin"]] <- list(low = c(0, -1, 240), high = c(1, 0, 300))
+param_bounds[["htmp"]] <- list(low = c(0, -300, -1, 240), high = c(1, 0, 0, 300))
+param_bounds[["dtmp"]] <- list(low = c(0, -100, 0, -1, 240), high = c(1, 0, 1, 0, 300))
+param_bounds[["htmpLin"]] <- list(low = c(0, -300, -1, 240), high = c(1, 0, 0, 300))
+param_bounds[["dtmpLin"]] <- list(low = c(0, -100, 0, -1, 240), high = c(1, 0, 1, 0, 300))
+
+
 # SIRS model
 SIRS_R0 <- function(time, state, theta){
   ## Parameters:
@@ -91,7 +99,7 @@ binom_Lp <- function(prms, R0_model, var_obs, epi_df, pop_size, q_cap, lambda = 
 }
 
 ## Function for loading epidemiological data from csv file
-load_state_epi <- function(file_path){
+load_US_epi <- function(file_path){
   epiob <- read.csv(file_path) # blank field automatically NA
   epiob <- epiob[epiob$WEEK <= 52, ] # cap year to 52 weeks
   
@@ -103,6 +111,26 @@ load_state_epi <- function(file_path){
   TT <- epiob$TOTAL.SPECIMENS
   pi <- epiob$X.UNWEIGHTED.ILI/100
   mask <- is.na(TT) | (TT == 0) | (pi == 0) # missing data: no. of test is 0 or NA, or no sympotomatic patient
+  cat(sum(mask), "weeks masked", "\n")
+  
+  epi_df <- data.frame("rel_date"=rel_date, "k"=k, "TT"=TT, "pi"=pi)
+  epi_df <- epi_df[!mask, ]
+  
+  return(epi_df)
+}
+
+load_EU_epi <- function(file_path){
+  epiob <- read.csv(file_path) # blank field automatically NA
+  epiob <- epiob[epiob$Week <= 52, ] # cap year to 52 weeks
+  
+  # calculate relative date to the beginning of the 1st year in the data
+  y0 <- epiob$Year[1]
+  rel_date <- (epiob$Year-y0)*364 + epiob$Week*7 - 3 # center on Thursday
+  
+  k <- epiob$cases
+  TT <- epiob$tests
+  pi <- epiob$ILI_p1e5/1e5
+  mask <- is.na(TT) | (TT == 0) | is.na(pi) | (pi == 0) # missing data: no. of test is 0 or NA, or no sympotomatic patient
   cat(sum(mask), "weeks masked", "\n")
   
   epi_df <- data.frame("rel_date"=rel_date, "k"=k, "TT"=TT, "pi"=pi)

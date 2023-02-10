@@ -124,6 +124,20 @@ for (state_code in states$V1){
 write.table(infections_df, "flu_fit/p_estimator.tsv", quote = FALSE, sep="\t", row.names = FALSE)
 write.table(pop_df, "flu_fit/denom_estimator.tsv", quote = FALSE, sep="\t", row.names = FALSE)
 ################################################
+library(dplyr)
+library(reshape2)
+
+## Check flu peaks ##
+infections_df <- read.delim("flu_fit/p_estimator.tsv")
+infections_df$SEASON <- rep(seq(10), each = 52)
+infections_df <- melt(infections_df, id.vars = c("YEAR", "WEEK", "SEASON"))
+
+seasonal_peak <- infections_df %>% group_by(SEASON, variable) %>%
+  summarize(PEAKWEAK = WEEK[which(value == max(value, na.rm=TRUE))])
+seasonal_peak <- dcast(seasonal_peak, SEASON ~ variable)
+write.table(seasonal_peak, file = "~/Downloads/seasonal_peak.csv", quote=FALSE, row.names=FALSE, sep=",")
+
+###############################################
 
 # # calculate scaling factors
 # p_df <- data.frame("p_hat"=pi*k/TT, "week"=epiob$WEEK)

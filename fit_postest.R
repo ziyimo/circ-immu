@@ -12,35 +12,36 @@ var_cache <- ls()
 time_stamp <- format(Sys.time(), "%m%d")
 
 if (interactive()){
-  state_ls <- "states_QC200.tsv"
+  region <- "EU"
   R0_mod <- "mixGE"
   share_intcpt <- "0" 
   l_pnl <- "1e2"
 } else {
   args <- commandArgs(trailingOnly=TRUE)
   
-  state_ls <- args[1]      # text file with a list of states to fit to
-  R0_mod <- args[2]        # R0 model, options: cos, hum, day, hd, sd, hsd
+  region <- args[1]        # US or EU
+  R0_mod <- args[2]        # R0 model, options: cos, hum, day, hd, sd, hsd etc.
   #share_intcpt <- args[3]  # "0" or "1"; deprecated
   l_pnl <- args[3]         # lambda for penalized likelihood
   nthr <- as.numeric(args[4]) # limit no. of threads
 }
 
-handle <- paste0(state_ls, "_", l_pnl, "_", R0_mod, "_", time_stamp)
+handle <- paste0(region, "_", l_pnl, "_", R0_mod, "_", time_stamp)
 
 share_intcpt <- TRUE # as.logical(as.numeric(share_intcpt))
 l_pnl <- as.numeric(l_pnl)
 
 sink(paste0("fit_results/", handle, ".log"))
 
-states <- read.delim(state_ls, header = FALSE)
+states <- read.delim(paste0(region, "_states.tsv"), header = FALSE)
 
 ## Load all state data
-state_pop <- read.delim("state_lv_data/state_pop.tsv")
-all_state_sun <- read.csv("state_lv_data/state_daily_sunrise_2019.csv")
-all_state_day <- read.csv("state_lv_data/state_daytime_2019.csv")
-all_state_hum <- read.csv("state_lv_data/state_humidity_2014_2018.csv")
-all_state_hum <- all_state_hum[all_state_hum$X != "2016-02-29", ] # get rid of leap year Feb 29
+state_pop <- read.delim(paste0("env_covar/", region, "_pop.tsv"))
+all_state_sun <- read.csv(paste0("env_covar/", region, "_sunrise_2019.csv"))
+all_state_day <- read.csv(paste0("env_covar/", region, "_daytime_2019.csv"))
+all_state_hum <- read.csv(paste0("env_covar/", region, "_humidity_2010_18.csv"))
+all_state_tmp <- read.csv(paste0("env_covar/", region, "_temperature_2010_18.csv"))
+#all_state_hum <- all_state_hum[all_state_hum$X != "2016-02-29", ] # Leap days already filtered out
 
 state_data <- list()
 
@@ -49,16 +50,21 @@ for (state_i in seq(nrow(states))){
   cat(">>> Loading state data:", state_code, "<<<\n")
   census_pop <- state_pop$pop[state_pop$code==state_code]
   
-  if (R0_mod %in% c("sun", "sd", "hsd")){
+  if (grepl('s', R0_mod, fixed = TRUE)){
     sunob <- all_state_sun[[state_code]]/720 # 365 days, scaled to maximum 720 = 12 hours
   }
-  if (R0_mod %in% c("day", "hd", "sd", "hsd")){
+  if (grepl('d', R0_mod, fixed = TRUE)){
     dayob <- all_state_day[[state_code]]/1440
   }
-  if (R0_mod %in% c("hum", "hd", "hsd")){
+  if (grepl('h', R0_mod, fixed = TRUE)){
     climob <- all_state_hum[[state_code]] # multiple years
     climob <- matrix(climob, nrow = length(climob)/365, ncol = 365, byrow = TRUE)
     climob <- colMeans(climob) # 365 days
+  }
+  if (grepl('t', R0_mod, fixed = TRUE)){
+    tmpob <- all_state_tmp[[state_code]]
+    tmpob <- matrix(tmpob, nrow = length(tmpob)/365, ncol = 365, byrow = TRUE)
+    tmpob <- colMeans(tmpob) # 365 days  
   }
   
   if (R0_mod == "cos"){
@@ -75,9 +81,16 @@ for (state_i in seq(nrow(states))){
     varob <- list(climob, sunob, dayob)
   } else if (R0_mod == "sun"){
     varob <- list(sunob)
+  } else if (R0_mod %in% c("tmp", "tmpLin")){
+    varob <- list(tmpob)
+  } else if (R0_mod %in% c("htmp", "htmpLin")){
+    varob <- list(climob, tmpob)
+  } else if (R0_mod %in% c("dtmp", "dtmpLin")){
+    varob <- list(dayob, tmpob)
   }
   
-  epi_data <- load_state_epi(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv"))
+  #epi_data <- load_state_epi(paste0("state_lv_data/Flu_data/flu_epi_", state_code, ".csv"))
+  epi_data <- do.call(paste0("load_", region,"_epi"), list(paste0("compiled_", region, "_Flu/flu_epi_", state_code, ".csv")))
   
   q_conf <- binom.confint(epi_data$k, epi_data$TT, conf.level = 1-1e-3, methods = c("exact"))
   q_99cap <- min(max(q_conf$upper), 1-1e-3)

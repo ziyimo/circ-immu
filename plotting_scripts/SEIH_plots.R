@@ -1,5 +1,6 @@
 library(ggplot2)
 library(gridExtra)
+library(ggrepel)
 
 clean <- theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
                panel.background = element_blank(), axis.line = element_line(colour = "black"),
@@ -46,10 +47,18 @@ for (census_reg in c("Northeast", "Midwest", "South", "West")){
 do.call(grid.arrange, c(plot_ls, list(ncol=2)))
 #grid.arrange(p1, p2, p3, p4, ncol = 2)
 
+tz_offset <- read.table("state_lv_data/CenPop2010_Mean_ST_tzoffset.txt", header = TRUE, sep = "\t", )
+tz_offset <- subset(tz_offset, select = c(code, LATITUDE, OFFCENTER))
+
+# load flu data for plotting
+permdst_rc <- read.table("flu_fit/fluepi1e1sd_boot40_sims_permdstRC.tsv", header = TRUE, sep = "\t")
+nodst_rc <- read.csv("flu_fit/fluepi1e1sd_boot40_sims_sansdstRC.tsv", header = TRUE, sep = "\t")
+no_states <- 40
+
 # annual_cnt$wodst_reduc <- (annual_cnt$wodst-annual_cnt$wdst)/annual_cnt$wdst
 # annual_cnt$permdst_reduc <- (annual_cnt$permdst-annual_cnt$wdst)/annual_cnt$wdst
 no_states <- 50
-permdst_plt <- data.frame(regime=rep("permdst", no_states+1))
+permdst_plt <- data.frame(regime=rep("DST", no_states+1))
 permdst_plt$opt <- permdst_rc$X1
 permdst_plt$stdev <- apply(permdst_rc, 1, FUN=sd)
 #permdst_plt$low <- apply(permdst_rc, 1, FUN=quantile, probs = 1-err_quantile)
@@ -57,13 +66,15 @@ permdst_plt$low <- permdst_plt$opt - permdst_plt$stdev #apply(permdst_rc, 1, FUN
 #permdst_plt$high <- apply(permdst_rc, 1, FUN=quantile, probs = err_quantile)
 permdst_plt$high <- permdst_plt$opt + permdst_plt$stdev #apply(permdst_rc, 1, FUN=max)
 permdst_plt$juri <- row.names(permdst_rc)
+permdst_plt <- merge(permdst_plt, tz_offset, by.x = "juri", by.y = "code")
 
-nodst_plt <- data.frame(regime=rep("nodst", no_states+1))
+nodst_plt <- data.frame(regime=rep("ST", no_states+1))
 nodst_plt$opt <- nodst_rc$X1
 nodst_plt$stdev <- apply(nodst_rc, 1, FUN=sd)
 nodst_plt$low <- nodst_plt$opt - nodst_plt$stdev
 nodst_plt$high <- nodst_plt$opt + nodst_plt$stdev
 nodst_plt$juri <- row.names(nodst_rc)
+nodst_plt <- merge(nodst_plt, tz_offset, by.x = "juri", by.y = "code")
 
 plt_df <- rbind(permdst_plt, nodst_plt)
 
@@ -87,8 +98,68 @@ ggplot(plt_df, aes(x=juri, y=opt, fill=regime)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(-0.5, 1, 0.25)) +
   theme(axis.text.x = element_text(size=9), axis.text.y = element_text(size=15), axis.line.x = element_blank()) + clean
 
+#### Latitude-longitude plots ####
+
+perm_lat_reg <- lm(opt ~ LATITUDE, permdst_plt)
+sans_lat_reg <- lm(opt ~ LATITUDE, nodst_plt)
+
+p_lat <- ggplot(plt_df, aes(x=LATITUDE, y=opt, color=regime)) +
+  geom_point(size=2) +
+  geom_abline(intercept = coef(sans_lat_reg)[["(Intercept)"]], slope = coef(sans_lat_reg)[["LATITUDE"]], linetype = "dashed", color = '#7570B3') +
+  geom_text(x=min(plt_df$LATITUDE), y = 0.5, label = format(summary(sans_lat_reg)$r.squared, digits=3), color = '#7570B3') +
+  geom_abline(intercept = coef(perm_lat_reg)[["(Intercept)"]], slope = coef(perm_lat_reg)[["LATITUDE"]], linetype = "dashed", color = '#800020') +
+  geom_text(x=min(plt_df$LATITUDE), y = -0.5, label = format(summary(perm_lat_reg)$r.squared, digits=3), color = '#800020') +
+  #geom_errorbar(aes(ymin=low, ymax=high)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  geom_text_repel(aes(label = juri), size = 3, max.overlaps = Inf) +
+  scale_color_manual(values = c('#7570B3', '#800020')) + clean
+
+perm_long_reg <- lm(opt ~ OFFCENTER, permdst_plt)
+sans_long_reg <- lm(opt ~ OFFCENTER, nodst_plt)
+
+p_long <- ggplot(plt_df, aes(x=OFFCENTER, y=opt, color=regime)) +
+  geom_point(size=2) +
+  geom_abline(intercept = coef(sans_long_reg)[["(Intercept)"]], slope = coef(sans_long_reg)[["OFFCENTER"]], linetype = "dashed", color = '#7570B3') +
+  geom_text(x=min(plt_df$OFFCENTER), y = 0.5, label = format(summary(sans_long_reg)$r.squared, digits=3), color = '#7570B3') +
+  geom_abline(intercept = coef(perm_long_reg)[["(Intercept)"]], slope = coef(perm_long_reg)[["OFFCENTER"]], linetype = "dashed", color = '#800020') +
+  geom_text(x=min(plt_df$OFFCENTER), y = -0.5, label = format(summary(perm_long_reg)$r.squared, digits=3), color = '#800020') +
+  #geom_errorbar(aes(ymin=low, ymax=high)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  geom_text_repel(aes(label = juri), size = 3, max.overlaps = Inf) +
+  scale_color_manual(values = c('#7570B3', '#800020')) + clean
+
+grid.arrange(p_lat, p_long, ncol = 2)
+
+########### single state fit plot ###########
+
+covid_df <- readRDS("state_lv_data/state_hospitalization.rds")
+covid_df$date <- as.numeric(as.Date(covid_df$date, format="%Y-%m-%d") - as.Date("2019-12-31", format="%Y-%m-%d"))
+
+dat_mod_df <- NULL
+
+state_eg <- "DE"
+
+state_df <- subset(covid_df, state == state_eg)
+state_df <- state_df[order(state_df$date),]
+state_df <- state_df[!is.na(state_df$hospitalizedCurrently), ]
+state_df <- state_df[state_df$date <= 396, ]
+state_hos <- subset(state_df, select = c("date", "hospitalizedCurrently"))
+colnames(state_hos) <- c("date", "obs")
+
+
+
+result <- merge(data.frame(date=seq(73, 365+31),
+                           pred=dst_trajs[[state_eg]][,1]),
+                state_hos, all = TRUE)
+
+result$date <- as.Date(result$date, origin = "2020-01-01")
+
+ggplot(result) + 
+  geom_point(aes(x=date, y=obs), color = "#000000", size=1) +
+  geom_line(aes(x=date, y=pred), color = "#009E73", size=0.8) + clean
+
 ########### state-level facet plots ###########
-states <- read.delim("states_49DC.tsv", header = FALSE)$V1
+states <- read.delim("US_states.tsv", header = FALSE)$V1
 no_states <- length(states)
 
 ## Load COVID hospitalization data

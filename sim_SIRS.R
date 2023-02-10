@@ -10,8 +10,9 @@ R0_mod <- "sd"        # R0 model
 #R0_params <- as.numeric(strsplit(args[1], ":", fixed=TRUE)[[1]]) # do not include `c`
 l_pnl <- args[1]         # lambda (for bookkeeping only)
 mode <- args[2]
+resamp_handle <- args[3]
 
-handle <- paste0(state_ls, l_pnl, R0_mod, "_", mode, "sims_trial")
+handle <- paste0("fluepi", l_pnl, R0_mod, "_", mode, resamp_handle, "_sims")
 
 fitted <- readRDS(Sys.glob(paste0("flu_fit/", paste(state_ls, l_pnl, R0_mod, "*.rds" ,sep="_"))))
 prms_optim <- unname(fitted$optim$bestmem[-1]) # do not include `c`
@@ -19,13 +20,13 @@ prms_optim <- unname(fitted$optim$bestmem[-1]) # do not include `c`
 if (mode == "hess"){
   library(MASS)
   ## Hessian ##
-  cov_Mtx <- readRDS(paste0("flu_fit/", R0_mod, as.numeric(l_pnl), "_1g5e-3_covMtx.rds")) # read covariant matrix
+  cov_Mtx <- readRDS(paste0("flu_fit/", R0_mod, as.numeric(l_pnl), "_", resamp_handle, ".rds")) # read covariant matrix
   resamp <- mvrnorm(n=10, prms_optim, cov_Mtx) # 10 replicates for now
   saveRDS(rbind(prms_optim, resamp), file = paste0("flu_fit/", handle, "_prmsamps.rds"))
 } else if (mode == "boot") {
   ## Bootstrap ##
   #resamp <- matrix(as.numeric(unlist(strsplit(prms_str, " +"))), byrow = TRUE, ncol = 4) # for premature checking
-  resamp <- readRDS(paste0("flu_fit/sd_bootprms_", l_pnl, "_trial.rds")) # change handle
+  resamp <- readRDS(paste0("flu_fit/sd_bootprms_", l_pnl, "_", resamp_handle, ".rds")) # change handle
 }
 
 prms_sets <- rbind(prms_optim, resamp)

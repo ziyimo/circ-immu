@@ -19,6 +19,21 @@ R0_hum <- function(h_t, alpha, R0base = 2, R0min = 1.2){ # Baker et al. exponent
 # > max(all_state_hum)
 # [1] 0.02134766
 
+R0_tmp <- function(T_t, alpha, T_0, R0base = 2, R0min = 1.2){ # Baker et al. exponential decay
+  R0 <- exp(alpha*(pmax(T_t-T_0, 0)) + log(R0base - R0min)) + R0min
+  return(R0)
+}
+#param_bounds[["tmp"]] <- list(low = c(0, -1, 240), high = c(1, 0, 300))
+#> quantile(c(unlist(US_tmp[, -1]), unlist(EU_tmp[, -1])))
+#0%      25%      50%      75%     100% 
+#242.7946 278.2353 285.9371 293.2729 309.8161
+
+R0_tmpLin <- function(T_t, alpha, T_0, R0base = 2, R0min = 1.2){
+  R0 <- pmax(pmin((R0base+R0min)/2+alpha*(T_t-T_0), R0base), R0min)
+  return(R0)
+}
+#param_bounds[["tmpLin"]] <- list(low = c(0, -1, 240), high = c(1, 0, 300))
+
 R0_day <- function(d_t, alpha, d_0, R0base = 2, R0min = 1.2){
   R0 <- exp(alpha*(d_t-d_0)^2 + log(R0base - R0min)) + R0min
   return(R0)
@@ -54,6 +69,30 @@ R0_hsd <- function(h_t, s_t, d_t, alpha_1, alpha_2, s_0, alpha_3, d_0, R0base = 
 }
 #param_bounds[["hsd"]] <- list(low = c(0, -300, -100, 0, -100, 0), high = c(1, 0, 0, 1, 0, 1))
 
+R0_htmp <- function(h_t, T_t, alpha_1, alpha_2, T_0, R0base = 2, R0min = 1.2){
+  R0 <- exp(alpha_1*h_t + alpha_2*(pmax(T_t-T_0, 0)) + log(R0base - R0min)) + R0min
+  return(R0)
+}
+#param_bounds[["htmp"]] <- list(low = c(0, -300, -1, 240), high = c(1, 0, 0, 300))
+
+R0_dtmp <- function(d_t, T_t, alpha_1, d_0, alpha_2, T_0, R0base = 2, R0min = 1.2){
+  R0 <- exp(alpha_1*(d_t-d_0)^2 + alpha_2*(pmax(T_t-T_0, 0)) + log(R0base - R0min)) + R0min
+  return(R0)
+}
+#param_bounds[["dtmp"]] <- list(low = c(0, -100, 0, -1, 240), high = c(1, 0, 1, 0, 300))
+
+R0_htmpLin <- function(h_t, T_t, alpha_1, alpha_2, T_0, R0base = 2, R0min = 1.2){
+  R0 <- exp(alpha_1*h_t + log(pmax(pmin((R0base-R0min)/2+alpha_2*(T_t-T_0), R0base-R0min), 0))) + R0min
+  return(R0)
+}
+#param_bounds[["htmpLin"]] <- list(low = c(0, -300, -1, 240), high = c(1, 0, 0, 300))
+
+R0_dtmpLin <- function(d_t, T_t, alpha_1, d_0, alpha_2, T_0, R0base = 2, R0min = 1.2){
+  R0 <- exp(alpha_1*(d_t-d_0)^2 + log(pmax(pmin((R0base-R0min)/2+alpha_2*(T_t-T_0), R0base-R0min), 0))) + R0min
+  return(R0)
+}
+#param_bounds[["dtmpLin"]] <- list(low = c(0, -100, 0, -1, 240), high = c(1, 0, 1, 0, 300))
+
 ######## Plot R0 models #######
 if(FALSE){
   library(ggplot2)
@@ -68,6 +107,23 @@ if(FALSE){
   sun_range = seq(0, 1, by=0.01)
   day_range = seq(0, 1, by=0.01)
   cli_range = seq(0, 0.03, by=0.0003)
+  tmp_range = seq(242.8, 309.8, by=0.1)
+  
+  ggplot() + 
+    geom_line(data = data.frame("var"= tmp_range, "R0"= R0_tmpLin(tmp_range, -0.005, 300)),
+              aes(x = var, y=R0), color = "#E69F00") +
+    geom_line(data = data.frame("var"= tmp_range, "R0"= R0_tmpLin(tmp_range, -0.5, 285)), 
+              aes(x = var, y=R0), color = "#0072B2") +
+    geom_line(data = data.frame("var"= tmp_range, "R0"= R0_tmpLin(tmp_range, -1, 290)), 
+              aes(x = var, y=R0), color = "#009E73") + clean
+  
+  ggplot() + 
+    geom_line(data = data.frame("var"= tmp_range, "R0"= R0_tmp(tmp_range, -0.02, 240)),
+              aes(x = var, y=R0), color = "#E69F00") +
+    geom_line(data = data.frame("var"= tmp_range, "R0"= R0_tmp(tmp_range, -0.5, 255)), 
+              aes(x = var, y=R0), color = "#0072B2") +
+    geom_line(data = data.frame("var"= tmp_range, "R0"= R0_tmp(tmp_range, -1, 300)), 
+              aes(x = var, y=R0), color = "#009E73") + clean
   
   ggplot() + 
     geom_line(data = data.frame("var"= sun_range, "R0"= R0_sunAsym(sun_range, -50, -1, 0.6)),
@@ -87,23 +143,23 @@ if(FALSE){
   
   #grid.arrange(p1, p2, ncol = 1)
   
-  hum_day_df <- expand.grid(cli_range, day_range)
-  colnames(hum_day_df) <- c("hum", "day")
+  hum_tmp_df <- expand.grid(cli_range, tmp_range)
+  colnames(hum_tmp_df) <- c("hum", "tmp")
   
-  sun_day_df <- expand.grid(sun_range, day_range)
-  colnames(sun_day_df) <- c("sun", "day")
+  day_tmp_df <- expand.grid(day_range, tmp_range)
+  colnames(day_tmp_df) <- c("day", "tmp")
   
-  hum_day_df$R0 <- R0_hd(hum_day_df$hum, hum_day_df$day, -100, -1)
-  p1 <- ggplot(hum_day_df, aes(hum, day, z = R0)) + geom_contour_filled() + clean
+  hum_tmp_df$R0 <- R0_htmpLin(hum_tmp_df$hum, hum_tmp_df$tmp, -150, -0.01, 270)
+  p1 <- ggplot(hum_tmp_df, aes(hum, tmp, z = R0)) + geom_contour_filled() + clean
   
-  hum_day_df$R0 <- R0_hd(hum_day_df$hum, hum_day_df$day, -30, -5)
-  p2 <- ggplot(hum_day_df, aes(hum, day, z = R0)) + geom_contour_filled() + clean
+  hum_tmp_df$R0 <- R0_htmpLin(hum_tmp_df$hum, hum_tmp_df$tmp, -100, -0.005, 275)
+  p2 <- ggplot(hum_tmp_df, aes(hum, tmp, z = R0)) + geom_contour_filled() + clean
   
-  sun_day_df$R0 <- R0_sd(sun_day_df$sun, sun_day_df$day, -100, -3)
-  p3 <- ggplot(sun_day_df, aes(sun, day, z = R0)) + geom_contour_filled() + clean
+  day_tmp_df$R0 <- R0_dtmpLin(day_tmp_df$day, day_tmp_df$tmp, -5, 0, -0.01, 270)
+  p3 <- ggplot(day_tmp_df, aes(day, tmp, z = R0)) + geom_contour_filled() + clean
   
-  sun_day_df$R0 <- R0_sd(sun_day_df$sun, sun_day_df$day, -100, -100)
-  p4 <- ggplot(sun_day_df, aes(sun, day, z = R0)) + geom_contour_filled() + clean
+  day_tmp_df$R0 <- R0_dtmpLin(day_tmp_df$day, day_tmp_df$tmp, -1, 0, -0.05, 275)
+  p4 <- ggplot(day_tmp_df, aes(day, tmp, z = R0)) + geom_contour_filled() + clean
   
   grid.arrange(p1, p2, p3, p4, ncol = 2)
   grid.arrange(p2, p3, ncol = 1)

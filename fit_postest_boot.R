@@ -128,11 +128,20 @@ saveRDS(evo_optim, file = paste0("fit_results/", handle, ".rds"))
 
 if (FALSE){
   ## Combined bootstrapping results
-  boot_params <- matrix(0, nrow=0, ncol = 5)
   
-  for (iter in c(2, 8)){
-    optim_obj <- readRDS(paste0("fit_results/sd_boot1e1_", iter, ".rds"))
+  bts_files <- Sys.glob("fit_results/sd_boot1e1_noc*.rds")
+  no_boots <- length(bts_files)
+  boot_params <- matrix(0, nrow=0, ncol = 4) # adjust the no. of params
+  
+  for (iter in seq(no_boots)){
+    optim_obj <- readRDS(bts_files[iter])
     boot_params <- rbind(boot_params, unname(optim_obj$optim$bestmem))
   }
-  saveRDS(boot_params, file = "flu_fit/sd_bootprms_1e1.rds")
+  
+  # some manual entries (close to finished runs)
+  boot_params <- rbind(boot_params, c(-28.109160, 0.533124, -8.215940, 0.186342))
+  boot_params <- rbind(boot_params, c(-18.537164, 0.572048, -3.905891, 0.006229))
+  boot_params <- rbind(boot_params, c(-25.047151, 0.535022, -6.456461, 0.107673))
+  
+  saveRDS(boot_params, file = "flu_fit/sd_bootprms_1e1_Apr6.rds")
 }
